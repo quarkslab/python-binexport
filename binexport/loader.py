@@ -7,6 +7,13 @@ from binexport.binexport2_pb2 import BinExport2
 
 
 def _get_instruction_address(pb: BinExport2, inst_idx: int) -> int:
+    """
+    Low level binexport protobuf function to return the address of an instruction
+    given its index in the protobuf.
+    :param pb: binexport protobuf object
+    :param inst_idx: index of the instruction
+    :return: address of the instruction
+    """
     inst = pb.instruction[inst_idx]
     if inst.HasField('address'):
         return inst.address
@@ -15,6 +22,13 @@ def _get_instruction_address(pb: BinExport2, inst_idx: int) -> int:
 
 
 def _backtrack_instruction_address(pb: BinExport2, idx) -> int:
+    """
+    Low level function to backtrack the instruction array for instruction that
+    does not have the address field set
+    :param pb: binexport protobuf object
+    :param idx: index of the instruction
+    :return: address of the instruction
+    """
     tmp_sz = 0
     tmp_idx = idx
     if tmp_idx == 0:
@@ -28,12 +42,31 @@ def _backtrack_instruction_address(pb: BinExport2, idx) -> int:
 
 
 def _get_basic_block_addr(pb: BinExport2, bb_idx: int) -> int:
+    """
+    Low level function to retrieve the basic block address from its index.
+    The function takes the first instruction of the basic block and retrieve
+    its address.
+    :param pb: binexport protobuf object
+    :param bb_idx: index of the basic block
+    :return: address of the basic block in the program
+    """
     inst = pb.basic_block[bb_idx].instruction_index[0].begin_index
     return _get_instruction_address(pb, inst)
 
 
 class ProgramBinExport(dict):
+    """
+    Program class that represent the binexport with high-level functions
+    and an easy to use API. It inherits from a dict which is used to
+    reference all functions based on their address.
+    """
+
     def __init__(self, file: str):
+        """
+        Program constructor. It takes the file path, parse the binexport and
+        initialize all the functions and instructions.
+        :param file: .BinExport file path
+        """
         super(dict, self).__init__()
         self._pb = BinExport2()
         with open(file, 'rb') as f:
@@ -94,18 +127,36 @@ class ProgramBinExport(dict):
                       (count_f, count_imp, coll, (count_f + count_imp + coll)))
 
     def addr_mask(self, value: int) -> int:
+        """
+        Mask and address value depending on whether its a 32 or 64 bits CPU.
+        Basically make sur the 32 high bits on 32 bits are set to 0 which is
+        not the case by default on binexport.
+        :param value: address value
+        :return: address value masked with the address size of CPU
+        """
         return value & self._mask
 
     @property
     def proto(self) -> BinExport2:
+        """
+        :return: Low-level BinExport2 protobuf object
+        """
         return self._pb
 
     @property
     def name(self) -> str:
+        """
+        Return the name of the program (as exported by binexport)
+        :return: name of the program
+        """
         return self.proto.meta_information.executable_name
 
     @property
     def architecture(self) -> str:
+        """
+        Returns the architecture suffixed with address size ex: x86_64, x86_32
+        :return: architecture name
+        """
         return self.proto.meta_information.architecture_name
 
     def __repr__(self) -> str:
@@ -113,8 +164,24 @@ class ProgramBinExport(dict):
 
 
 class FunctionBinExport(dict):
+    """
+    Class that represent functions. It inherits from a dict which is used to
+    reference all basic blocks by their address. Also references its parents
+    and children (function it calls).
+    """
+
     def __init__(self, program: ProgramBinExport, data_refs: Dict[int, List[int]], addr_refs: Dict[int, str],
                  pb_fun: Optional[BinExport2.FlowGraph], is_import: bool = False, addr: Optional[int] = None):
+        """
+        Constructor. Iterates the FlowGraph structure and initialize all the
+        basic blocks and instruction accordingly.
+        :param program: program (used to navigate pb fields contained inside)
+        :param data_refs: references to data (that were computed once and for all at program initialization)
+        :param addr_refs: reference to strings (that were computed once and for all at program initialization)
+        :param pb_fun: FlowGraph protobuf structure
+        :param is_import: whether or not its an import function (if so does not initialize bb etc..)
+        :param addr: address of the function (info avalaible in the call graph)
+        """
         super(dict, self).__init__()
         self.addr = addr
         self.parents = set()
@@ -187,25 +254,51 @@ class FunctionBinExport(dict):
             self.graph.add_edge(bb_src, bb_dst)
 
     def __hash__(self) -> int:
+        """
+        Make function hashable to be able to store them in sets (for parents, children)
+        :return: address of the function
+        """
         return hash(self.addr)
 
     @property
     def name(self) -> str:
+        """
+        Name of the function if it exists otherwise like IDA with sub_XXX
+        :return: name of the function
+        """
         return self._name if self._name else "sub_%X" % self.addr
 
     @name.setter
     def name(self, name: str) -> None:
+        """
+        Function name setter (available in the call graph of the pb object)
+        :param name: name to give the function
+        :return: None
+        """
         self._name = name
 
     @property
     def type(self) -> BinExport2.FlowGraph.Edge.Type:
+        """
+        Type of the function within [NORMAL, LIBRARY, THUNK, IMPORTED, INVALID]
+        :return: type enum of the function
+        """
         return self._pb_type
 
     @type.setter
     def type(self, value: BinExport2.FlowGraph.Edge.Type) -> None:
+        """
+        Set the type of the function (available in the call graph of the pb object)
+        :param value: type enum to give the function
+        :return: None
+        """
         self._pb_type = value
 
     def is_import(self) -> bool:
+        """
+        Returns whether or not the function is an import
+        :return: boolean indicating if the function is an import
+        """
         return self.type == BinExport2.CallGraph.Vertex.IMPORTED
 
     def __repr__(self) -> str:
@@ -213,7 +306,18 @@ class FunctionBinExport(dict):
 
 
 class InstructionBinExport:
+    """
+    Instruction class. It represent an instruction with its operands.
+    """
+
     def __init__(self, program: ProgramBinExport, fun: FunctionBinExport, addr: int, i_idx: int):
+        """
+        Instruction constructor.
+        :param program: program object (which contains protobuf structure)
+        :param fun: function object (within which the instruction is located)
+        :param addr: address of the instruction (computed outside)
+        :param i_idx: instuction index in the protobuf data structure
+        """
         self._addr = addr
         self._program = program
         self._function = fun
@@ -223,22 +327,43 @@ class InstructionBinExport:
 
     @property
     def addr(self) -> int:
+        """
+        Address of the instruction
+        :return: address of the instruction
+        """
         return self._addr
 
     @property
     def mnemonic(self) -> str:
+        """
+        Returns the mnemonic string as gathered by binexport
+        :return: mnemonic string (with prefix)
+        """
         return self._program.proto.mnemonic[self._program.proto.instruction[self._idx].mnemonic_index].name
 
     def _me(self) -> BinExport2.Instruction:
+        """
+        Returns the Instruction object in the binexport structure
+        :return: Instruction binexport object
+        """
         return self._program.proto.instruction[self._idx]
 
     @property
     def operands(self):
+        """
+        Returns a list of the operands which class are instanciated dynamically on-demand.
+        :return: list of operand objects
+        """
         return [OperandBinExport(self._program, self._function, self, op_idx)
                 for op_idx in self._me().operand_index]
 
     @property
     def comment(self) -> str:
+        """
+        Returns the string of the comment (if binexport did exported them which is
+        apparently not the case)
+        :return: comment string
+        """
         if len(self.data_refs) >= len(self.addr_refs):
             ith = len(self.data_refs)
         else:
@@ -257,6 +382,10 @@ class InstructionBinExport:
             return ""
 
     def is_function_entry(self) -> bool:
+        """
+        Returns whether or not the instruction is the entrypoint of a function
+        :return: boolean if instruction is the entrypoint
+        """
         return self.addr in self._program
 
     def __repr__(self) -> str:
@@ -265,19 +394,41 @@ class InstructionBinExport:
 
 
 class OperandBinExport:
+    """
+    Class that represent an operand. The class goal is mainly
+    to iterate the operand expression.
+    """
+
     __sz_lookup = {'b1': 1, 'b2': 2, 'b4': 4, 'b8': 8, 'b10': 10, 'b16': 16, 'b32': 32, 'b64': 64}
     __sz_name = {1: 'byte', 2: 'word', 4: 'dword', 8: "qword", 10: 'b10', 16: "xmmword", 32: "ymmword", 64: "zmmword"}
 
     def __init__(self, program: ProgramBinExport, fun: FunctionBinExport, inst: InstructionBinExport, op_idx: int):
+        """
+        Constructor. Takes both the program, function and instruction which are used
+        to compute various attributes
+        :param program: Program object
+        :param fun: Function object
+        :param inst: Instruction object
+        :param op_idx: operand index in protobuf structure
+        """
         self._program = program
         self._function = fun
         self._instruction = inst
         self._idx = op_idx
 
     def _me(self) -> BinExport2.Operand:
+        """
+        Returns the operand object in the protobuf structure
+        :return: protobuf operand
+        """
         return self._program.proto.operand[self._idx]
 
     def __iter_expressions(self) -> Generator[Tuple[str, Union[str, int], int, int], None, None]:
+        """
+        Low-level expression generator. Some simple types are converted to IDA style
+        types (libname, codname etc...)
+        :return: Generator of (low-level) expressions
+        """
         size = None
         for idx in self._me().expression_index:
             exp = self._program.proto.expression[idx]
@@ -323,11 +474,21 @@ class OperandBinExport:
                 print("woot:", exp)
 
     @property
-    def expressions(self) -> Dict[str, Union[str, int]]:
+    def expressions(self) -> Generator[Dict[str, Union[str, int]]]:
+        """
+        Iterates over all the operand expression in a pre-order manner
+        (binary operator first). Each item of the generator is a dict
+        containing a 'type' and a 'value' field.
+        :return: Generator of expression dict items
+        """
         for elt in self.__iter_expressions():
             yield {'type': elt[0], 'value': elt[1]}
 
     def byte_size(self) -> int:
+        """
+        Size of the operand in bytes.
+        :return: operand size in bytes
+        """
         exp = self._program.proto.expression[self._me().expression_index[0]]
         if exp.type == BinExport2.Expression.SIZE_PREFIX:
             return self.__sz_lookup[exp.symbol]
@@ -336,6 +497,10 @@ class OperandBinExport:
 
     @property
     def type(self) -> BinExport2.Expression.Type:
+        """
+        Returns the type of the operand using the binexport protobuf enum type
+        :return: enum type
+        """
         for exp in (self._program.proto.expression[idx] for idx in self._me().expression_index):
             if exp.type in [BinExport2.Expression.SIZE_PREFIX, BinExport2.Expression.OPERATOR]:
                 continue
@@ -352,6 +517,10 @@ class OperandBinExport:
             logging.error("No type found for operand: %s" % str(self))
 
     def __str__(self) -> str:
+        """
+        Formatted string of the operand (shown in-order)
+        :return: string of the operand
+        """
         is_deref = False
         exps = list(self.__iter_expressions())
         child_count = defaultdict(int)
