@@ -1,9 +1,27 @@
 from __future__ import absolute_import
 import logging
+import os
+import tempfile
 from collections import defaultdict
+
 import networkx
 from typing import Dict, List, Optional, Generator, Tuple, Union
 from binexport.binexport2_pb2 import BinExport2
+
+IDA_EXPORT_SCRIPT = """
+import ida_auto
+import ida_expr
+import ida_nalt
+import ida_pro
+import os.path
+import ida_kernwin
+
+ida_auto.auto_wait()
+filename = os.path.splitext(ida_nalt.get_input_file_path())[0]
+rv = ida_expr.idc_value_t()
+ida_expr.eval_idc_expr(rv, ida_kernwin.get_screen_ea(), 'BinExport2Diff("'+filename+'.BinExport")')
+ida_pro.qexit(0)
+"""
 
 
 def _get_instruction_address(pb: BinExport2, inst_idx: int) -> int:
@@ -125,6 +143,31 @@ class ProgramBinExport(dict):
 
         logging.debug("total all:%d, imported:%d collision:%d (total:%d)" %
                       (count_f, count_imp, coll, (count_f + count_imp + coll)))
+
+    @staticmethod
+    def from_binary_file(exec_file: str):
+        """
+        Generate the .BinExport file for the given program and return an instance
+        of ProgramBinExport.
+        .. warning:: That function requires the module ``idascript``
+        :param exec_file: executable file path
+        :return: an instance of ProgramBinExport
+        """
+        from idascript import IDA
+        script_file = tempfile.mktemp(".py")
+        with open(script_file, "w") as out:
+            out.write(IDA_EXPORT_SCRIPT)
+        ida = IDA(exec_file, script_file, [])
+        ida.start()
+        retcode = ida.wait()
+        os.remove(script_file)
+        logging.info("%s (retcode: %d" % (exec_file, retcode))
+        binexport_file = os.path.splitext(exec_file)[0]+".BinExport"
+        if os.path.exists(binexport_file):
+            return ProgramBinExport(binexport_file)
+        else:
+            logging.error("export with IDA failed for some reasons (binexport not found)")
+            return None
 
     def addr_mask(self, value: int) -> int:
         """
@@ -474,7 +517,7 @@ class OperandBinExport:
                 print("woot:", exp)
 
     @property
-    def expressions(self) -> Generator[Dict[str, Union[str, int]]]:
+    def expressions(self) -> Generator[Dict[str, Union[str, int]], None, None]:
         """
         Iterates over all the operand expression in a pre-order manner
         (binary operator first). Each item of the generator is a dict
