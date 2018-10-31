@@ -2,7 +2,7 @@ from __future__ import absolute_import
 import logging
 import os
 import tempfile
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 import networkx
 from typing import Dict, List, Optional, Generator, Tuple, Union
@@ -93,26 +93,26 @@ class ProgramBinExport(dict):
         self.fun_names = {}
 
         # Make the data refs map
-        data_refs = {}
+        self.data_refs = {}
         for entry in self.proto.data_reference[::-1]:
-            if entry.instruction_index in data_refs:
-                data_refs[entry.instruction_index].append(entry.address)
+            if entry.instruction_index in self.data_refs:
+                self.data_refs[entry.instruction_index].append(entry.address)
             else:
-                data_refs[entry.instruction_index] = [entry.address]
+                self.data_refs[entry.instruction_index] = [entry.address]
 
         # Make the address comment
-        addr_refs = {}
+        self.addr_refs = {}
         for entry in self.proto.address_comment[::-1]:
-            if entry.instruction_index in addr_refs:
-                addr_refs[entry.instruction_index].append(self.proto.string_table[entry.string_table_index])
+            if entry.instruction_index in self.addr_refs:
+                self.addr_refs[entry.instruction_index].append(self.proto.string_table[entry.string_table_index])
             else:
-                addr_refs[entry.instruction_index] = [self.proto.string_table[entry.string_table_index]]
+                self.addr_refs[entry.instruction_index] = [self.proto.string_table[entry.string_table_index]]
 
         count_f = 0
         coll = 0
         # Load all the functions
         for i, pb_fun in enumerate(self.proto.flow_graph):
-            f = FunctionBinExport(self, data_refs, addr_refs, pb_fun)
+            f = FunctionBinExport(self, pb_fun)
             if f.addr in self:
                 logging.error("Address collision for 0x%x" % f.addr)
                 coll += 1
@@ -124,8 +124,7 @@ class ProgramBinExport(dict):
         cg = self.proto.call_graph
         for node in cg.vertex:
             if node.address not in self and node.type == cg.Vertex.IMPORTED:
-                self[node.address] = FunctionBinExport(self, data_refs, addr_refs, None,
-                                                       is_import=True, addr=node.address)
+                self[node.address] = FunctionBinExport(self, None, is_import=True, addr=node.address)
                 count_imp += 1
             if node.address not in self and node.type == cg.Vertex.NORMAL:
                 logging.error("Missing function address: 0x%x (%d)" % (node.address, node.type))
@@ -213,8 +212,8 @@ class FunctionBinExport(dict):
     and children (function it calls).
     """
 
-    def __init__(self, program: ProgramBinExport, data_refs: Dict[int, List[int]], addr_refs: Dict[int, str],
-                 pb_fun: Optional[BinExport2.FlowGraph], is_import: bool = False, addr: Optional[int] = None):
+    def __init__(self, program: ProgramBinExport, pb_fun: Optional[BinExport2.FlowGraph], is_import: bool = False,
+                 addr: Optional[int] = None):
         """
         Constructor. Iterates the FlowGraph structure and initialize all the
         basic blocks and instruction accordingly.
@@ -238,53 +237,19 @@ class FunctionBinExport(dict):
 
         self.addr = _get_basic_block_addr(program.proto, pb_fun.entry_basic_block_index)
 
-        cur_addr = None
-        prev_idx = -2
+        cur_state = [None, -2]  # corespond to [cur_addr, prev_idx]
         tmp_mapping = {}
         bb_count = 0
         for bb_idx in pb_fun.basic_block_index:
             for rng in program.proto.basic_block[bb_idx].instruction_index:  # Ranges are in fact the true basic blocks!
                 bb_count += 1
-                bb_addr = None
-                bb_data = []
-                for idx in range(rng.begin_index, (rng.end_index if rng.end_index else rng.begin_index + 1)):
+                bb = BasicBlocBinExport(program, self, rng, cur_state)
 
-                    if idx != prev_idx + 1:  # if the current idx is different from the previous range or bb
-                        cur_addr = None  # reset the addr has we have no guarantee on the continuity of the address
-
-                    pb_inst = program.proto.instruction[idx]
-
-                    if pb_inst.HasField('address'):  # If the instruction have an address set (can be 0)
-                        if cur_addr is not None and cur_addr != pb_inst.address:
-                            # logging.warning("cur_addr different from inst address: %x != %x (%d) (%d->%d)" %
-                            #                                    (cur_addr, pb_inst.address, bb_idx, prev_idx, idx))
-                            pass  # might be legit if within the basic block there is data
-                            # thus within the same range not contiguous address can co-exists
-                        cur_addr = pb_inst.address  # set the address to the one of inst regardless cur_addr was set
-                    else:
-                        if not cur_addr:  # if cur_addr_not set backtrack to get it
-                            cur_addr = _get_instruction_address(program.proto, idx)
-
-                    # At this point we should have a cur_addr correctly set to the right instruction address
-                    if not bb_addr:
-                        bb_addr = cur_addr
-
-                    # At this point do the instruction initialization
-                    inst = InstructionBinExport(program, self, cur_addr, idx)
-                    bb_data.append(inst)
-                    if idx in data_refs:  # Add some
-                        inst.data_refs = data_refs[idx]
-                    if idx in addr_refs:
-                        inst.addr_refs = addr_refs[idx]
-
-                    cur_addr += len(pb_inst.raw_bytes)  # increment the cur_addr with the address size
-                    prev_idx = idx
-
-                if bb_addr in self:
-                    logging.error("0x%x basic block address (0x%x) already in(idx:%d)" % (self.addr, bb_addr, bb_idx))
-                self[bb_addr] = bb_data
-                tmp_mapping[bb_idx] = bb_addr
-                self.graph.add_node(bb_addr)
+                if bb.addr in self:
+                    logging.error("0x%x basic block address (0x%x) already in(idx:%d)" % (self.addr, bb.addr, bb_idx))
+                self[bb.addr] = bb
+                tmp_mapping[bb_idx] = bb.addr
+                self.graph.add_node(bb.addr)
 
         if bb_count != len(self):
             logging.error("Wrong basic block number %x, bb:%d, self:%d" %
@@ -346,6 +311,73 @@ class FunctionBinExport(dict):
 
     def __repr__(self) -> str:
         return '<BinExportFunction: 0x%x>' % self.addr
+
+
+class BasicBlocBinExport(OrderedDict):
+    """
+    Basic block class: For convenience represented as an ordered dict rather than
+    a list.
+    """
+
+    def __init__(self, program: ProgramBinExport, function: FunctionBinExport,
+                 rng: BinExport2.BasicBlock.IndexRange, state: list):
+        """
+        Basic Block constructor. Solely takes the address in input
+        :param addr: basic block address
+        """
+        super(OrderedDict, self).__init__()
+        self._addr = None
+        for idx in range(rng.begin_index, (rng.end_index if rng.end_index else rng.begin_index + 1)):
+
+            if idx != state[1] + 1:  # if the current idx is different from the previous range or bb
+                state[0] = None  # reset the addr has we have no guarantee on the continuity of the address
+
+            pb_inst = program.proto.instruction[idx]
+
+            if pb_inst.HasField('address'):  # If the instruction have an address set (can be 0)
+                if state[0] is not None and state[0] != pb_inst.address:
+                    # logging.warning("cur_addr different from inst address: %x != %x (%d) (%d->%d)" %
+                    #                                    (cur_addr, pb_inst.address, bb_idx, prev_idx, idx))
+                    pass  # might be legit if within the basic block there is data
+                    # thus within the same range not contiguous address can co-exists
+                state[0] = pb_inst.address  # set the address to the one of inst regardless cur_addr was set
+            else:
+                if not state[0]:  # if cur_addr_not set backtrack to get it
+                    state[0] = _get_instruction_address(program.proto, idx)
+
+            # At this point we should have a cur_addr correctly set to the right instruction address
+            if not self._addr:
+                self._addr = state[0]
+
+            # At this point do the instruction initialization
+            inst = InstructionBinExport(program, function, state[0], idx)
+            self._append_instruction(inst)
+            if idx in program.data_refs:  # Add some
+                inst.data_refs = program.data_refs[idx]
+            if idx in program.addr_refs:
+                inst.addr_refs = program.addr_refs[idx]
+
+            state[0] += len(pb_inst.raw_bytes)  # increment the cur_addr with the address size
+            state[1] = idx
+
+    @property
+    def addr(self) -> int:
+        """
+        Returns the basic block instruction
+        :return: basic block address
+        """
+        return self._addr
+
+    def _append_instruction(self, instruction) -> None:
+        """
+        Utility function to add an instruction in the basic block.
+        :param instruction: InstructionBinExport object
+        :return: None
+        """
+        self[instruction.addr] = instruction
+
+    def __repr__(self):
+        return "<BasicBlock:0x%x>" % self.addr
 
 
 class InstructionBinExport:

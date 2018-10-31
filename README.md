@@ -38,12 +38,11 @@ from binexport import ProgramBinExport
 
 p = ProgramBinExport("myprogram.BinExport")
 for fun_addr, fun in p.items():
-    for bb in fun:
-        for inst in bb:
+    for bb_addr, bb in fun.items():
+        for inst_addr, inst in bb.items():
             for operand in inst.operands:
                 for exp in operand.expressions:
                     pass  # Do whatever at such deep level
-
 ```
 
 Obviously ``ProgramBinExport``, ``FunctionBinExport``, ``InstructionBinExport`` and ``OperandBinExport``
