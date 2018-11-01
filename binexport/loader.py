@@ -243,7 +243,7 @@ class FunctionBinExport(dict):
         for bb_idx in pb_fun.basic_block_index:
             for rng in program.proto.basic_block[bb_idx].instruction_index:  # Ranges are in fact the true basic blocks!
                 bb_count += 1
-                bb = BasicBlocBinExport(program, self, rng, cur_state)
+                bb = BasicBlockBinExport(program, self, rng, cur_state)
 
                 if bb.addr in self:
                     logging.error("0x%x basic block address (0x%x) already in(idx:%d)" % (self.addr, bb.addr, bb_idx))
@@ -313,7 +313,7 @@ class FunctionBinExport(dict):
         return '<BinExportFunction: 0x%x>' % self.addr
 
 
-class BasicBlocBinExport(OrderedDict):
+class BasicBlockBinExport(OrderedDict):
     """
     Basic block class: For convenience represented as an ordered dict rather than
     a list.
