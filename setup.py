@@ -14,7 +14,7 @@ setup(
         'click',
         'protobuf',
         'networkx'
-        # idascript to generate .BinExport files
+        'idascript'
     ],
     scripts=['bin/binexporter']
 )
