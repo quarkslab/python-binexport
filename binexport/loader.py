@@ -376,6 +376,9 @@ class BasicBlockBinExport(OrderedDict):
         """
         self[instruction.addr] = instruction
 
+    def __str__(self) -> str:
+        return "\n".join(str(i) for i in self.values())
+
     def __repr__(self):
         return "<%s:0x%x>" % (type(self).__name__, self.addr)
 
@@ -462,6 +465,9 @@ class InstructionBinExport:
         :return: boolean if instruction is the entrypoint
         """
         return self.addr in self._program
+
+    def __str__(self) -> str:
+        return '%s %s' % (self.mnemonic, ", ".join(str(o) for o in self.operands))
 
     def __repr__(self) -> str:
         return "<%s 0x%x: %s %s>" % \
@@ -559,6 +565,7 @@ class OperandBinExport:
         for elt in self.__iter_expressions():
             yield {'type': elt[0], 'value': elt[1]}
 
+    @property
     def byte_size(self) -> int:
         """
         Size of the operand in bytes.
@@ -609,12 +616,11 @@ class OperandBinExport:
             if value == "[":
                 is_deref = True
             if child_count[idx] > 1:
-                if child_count[idx] == 2:
-                    child_count[idx] -= 1
-                    exps.insert(1, e)
-                    continue
-                else:
-                    print("More than 2 child for op:%d" % self._idx)
+                # The operand may have more than two operand. Still put it between the two firsts
+                child_count[idx] -= 1
+                exps.insert(1, e)
+                continue
+
             if isinstance(value, int):
                 final_s += hex(value)
             else:  # else its normally a string
