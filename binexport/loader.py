@@ -144,7 +144,7 @@ class ProgramBinExport(dict):
                       (count_f, count_imp, coll, (count_f + count_imp + coll)))
 
     @staticmethod
-    def from_binary_file(exec_file: str):
+    def from_binary_file(exec_file: str) -> Optional['ProgramBinExport']:
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.
@@ -160,7 +160,7 @@ class ProgramBinExport(dict):
         ida.start()
         retcode = ida.wait()
         os.remove(script_file)
-        logging.info("%s (retcode: %d" % (exec_file, retcode))
+        logging.info("%s successfully exported to BinExport [code: %d]" % (exec_file, retcode))
         binexport_file = os.path.splitext(exec_file)[0]+".BinExport"
         if os.path.exists(binexport_file):
             return ProgramBinExport(binexport_file)
@@ -202,7 +202,7 @@ class ProgramBinExport(dict):
         return self.proto.meta_information.architecture_name
 
     def __repr__(self) -> str:
-        return '<BinExportProgram:%s>' % self.name
+        return '<%s:%s>' % (type(self).__name__, self.name)
 
 
 class FunctionBinExport(dict):
@@ -310,7 +310,7 @@ class FunctionBinExport(dict):
         return self.type == BinExport2.CallGraph.Vertex.IMPORTED
 
     def __repr__(self) -> str:
-        return '<BinExportFunction: 0x%x>' % self.addr
+        return '<%s: 0x%x>' % (type(self).__name__, self.addr)
 
 
 class BasicBlockBinExport(OrderedDict):
@@ -377,7 +377,7 @@ class BasicBlockBinExport(OrderedDict):
         self[instruction.addr] = instruction
 
     def __repr__(self):
-        return "<BasicBlock:0x%x>" % self.addr
+        return "<%s:0x%x>" % (type(self).__name__, self.addr)
 
 
 class InstructionBinExport:
@@ -464,8 +464,8 @@ class InstructionBinExport:
         return self.addr in self._program
 
     def __repr__(self) -> str:
-        return "<BinExportInstruction: 0x%x %s %s>" % \
-               (self.addr, self.mnemonic, ", ".join(str(x) for x in self.operands))
+        return "<%s 0x%x: %s %s>" % \
+               (type(self).__name__, self.addr, self.mnemonic, ", ".join(str(x) for x in self.operands))
 
 
 class OperandBinExport:
