@@ -144,12 +144,14 @@ class ProgramBinExport(dict):
                       (count_f, count_imp, coll, (count_f + count_imp + coll)))
 
     @staticmethod
-    def from_binary_file(exec_file: str) -> Optional['ProgramBinExport']:
+    def from_binary_file(exec_file: str, output_file: str="", open_export: bool=True) -> Optional['ProgramBinExport']:
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.
         .. warning:: That function requires the module ``idascript``
         :param exec_file: executable file path
+        :param output_file: BinExport output file
+        :param open_export: whether or not to open the binexport after export
         :return: an instance of ProgramBinExport
         """
         from idascript import IDA
@@ -162,8 +164,11 @@ class ProgramBinExport(dict):
         os.remove(script_file)
         logging.info("%s successfully exported to BinExport [code: %d]" % (exec_file, retcode))
         binexport_file = os.path.splitext(exec_file)[0]+".BinExport"
+        if output_file:
+            os.rename(binexport_file, output_file)
+            binexport_file = output_file
         if os.path.exists(binexport_file):
-            return ProgramBinExport(binexport_file)
+            return ProgramBinExport(binexport_file) if open_export else None
         else:
             logging.error("export with IDA failed for some reasons (binexport not found)")
             return None
