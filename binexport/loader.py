@@ -243,11 +243,11 @@ class FunctionBinExport(dict):
         self.addr = _get_basic_block_addr(program.proto, pb_fun.entry_basic_block_index)
 
         cur_state = [None, -2]  # corespond to [cur_addr, prev_idx]
-        tmp_mapping = {}
-        splitted_dict = {}
+        bb_map = {}
+        rng_map = {}
         bb_count = 0
         for bb_idx in pb_fun.basic_block_index:
-            splitted = set()
+            splitted = []
             for rng in program.proto.basic_block[bb_idx].instruction_index:  # Ranges are in fact the true basic blocks!
                 bb_count += 1
                 bb = BasicBlockBinExport(program, self, rng, cur_state)
@@ -255,15 +255,14 @@ class FunctionBinExport(dict):
                 if bb.addr in self:
                     logging.error("0x%x basic block address (0x%x) already in(idx:%d)" % (self.addr, bb.addr, bb_idx))
                 self[bb.addr] = bb
-                tmp_mapping[bb_idx] = bb.addr
+                bb_map[bb_idx] = bb.addr
                 self.graph.add_node(bb.addr)
-                splitted.add(bb.addr)
+                splitted.append(bb.addr)
 
             if len(splitted) > 1:
-                sorted_splitted = sorted(splitted)  # Todo could be removed but hacky
-                for node1, node2 in zip(sorted_splitted, sorted_splitted[1:]):
+                for node1, node2 in zip(splitted, splitted[1:]):
                     self.graph.add_edge(node1, node2)
-                splitted_dict[bb_idx] = [sorted_splitted[0], sorted_splitted[-1]]
+                rng_map[bb_idx] = [splitted[0], splitted[-1]]
 
         if bb_count != len(self):
             logging.error("Wrong basic block number %x, bb:%d, self:%d" %
@@ -271,15 +270,11 @@ class FunctionBinExport(dict):
 
         # Load the edges between blocks
         for edge in pb_fun.edge:
-            if edge.source_basic_block_index in splitted_dict:
-                bb_src = splitted_dict[edge.source_basic_block_index][1]
-            else:
-                bb_src = tmp_mapping[edge.source_basic_block_index]
-
-            if edge.target_basic_block_index in splitted_dict:
-                bb_dst = splitted_dict[edge.target_basic_block_index][0]
-            else:
-                bb_dst = tmp_mapping[edge.target_basic_block_index]
+            # if the blocks were a range take the ones in the range
+            src_idx = edge.source_basic_block_index
+            bb_src = rng_map[src_idx][1] if src_idx in rng_map else bb_map[src_idx]
+            tgt_idx = edge.target_basic_block_index
+            bb_dst = rng_map[tgt_idx[0] if tgt_idx in rng_map else bb_map[tgt_idx]
 
             self.graph.add_edge(bb_src, bb_dst)
 
