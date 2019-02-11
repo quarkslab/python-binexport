@@ -244,8 +244,10 @@ class FunctionBinExport(dict):
 
         cur_state = [None, -2]  # corespond to [cur_addr, prev_idx]
         tmp_mapping = {}
+        splitted_dict = {}
         bb_count = 0
         for bb_idx in pb_fun.basic_block_index:
+            splitted = set()
             for rng in program.proto.basic_block[bb_idx].instruction_index:  # Ranges are in fact the true basic blocks!
                 bb_count += 1
                 bb = BasicBlockBinExport(program, self, rng, cur_state)
@@ -255,6 +257,13 @@ class FunctionBinExport(dict):
                 self[bb.addr] = bb
                 tmp_mapping[bb_idx] = bb.addr
                 self.graph.add_node(bb.addr)
+                splitted.add(bb.addr)
+
+            if len(splitted) > 1:
+                sorted_splitted = sorted(splitted)  # Todo could be removed but hacky
+                for node1, node2 in zip(sorted_splitted, sorted_splitted[1:]):
+                    self.graph.add_edge(node1, node2)
+                splitted_dict[bb_idx] = [sorted_splitted[0], sorted_splitted[-1]]
 
         if bb_count != len(self):
             logging.error("Wrong basic block number %x, bb:%d, self:%d" %
@@ -262,8 +271,16 @@ class FunctionBinExport(dict):
 
         # Load the edges between blocks
         for edge in pb_fun.edge:
-            bb_src = tmp_mapping[edge.source_basic_block_index]
-            bb_dst = tmp_mapping[edge.target_basic_block_index]
+            if edge.source_basic_block_index in splitted_dict:
+                bb_src = splitted_dict[edge.source_basic_block_index][1]
+            else:
+                bb_src = tmp_mapping[edge.source_basic_block_index]
+
+            if edge.target_basic_block_index in splitted_dict:
+                bb_dst = splitted_dict[edge.target_basic_block_index][0]
+            else:
+                bb_dst = tmp_mapping[edge.target_basic_block_index]
+
             self.graph.add_edge(bb_src, bb_dst)
 
     def __hash__(self) -> int:
