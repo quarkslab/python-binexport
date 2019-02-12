@@ -13,7 +13,7 @@ setup(
         'python-magic',
         'click',
         'protobuf',
-        'networkx'
+        'networkx',
         'idascript'
     ],
     scripts=['bin/binexporter']
