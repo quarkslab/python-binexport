@@ -274,7 +274,7 @@ class FunctionBinExport(dict):
             src_idx = edge.source_basic_block_index
             bb_src = rng_map[src_idx][1] if src_idx in rng_map else bb_map[src_idx]
             tgt_idx = edge.target_basic_block_index
-            bb_dst = rng_map[tgt_idx[0] if tgt_idx in rng_map else bb_map[tgt_idx]
+            bb_dst = rng_map[tgt_idx][0] if tgt_idx in rng_map else bb_map[tgt_idx]
 
             self.graph.add_edge(bb_src, bb_dst)
 
