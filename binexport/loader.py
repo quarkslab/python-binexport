@@ -19,7 +19,7 @@ import ida_kernwin
 ida_auto.auto_wait()
 filename = os.path.splitext(ida_nalt.get_input_file_path())[0]
 rv = ida_expr.idc_value_t()
-ida_expr.eval_idc_expr(rv, ida_kernwin.get_screen_ea(), 'BinExport2Diff("'+filename+'.BinExport")')
+ida_expr.eval_idc_expr(rv, ida_kernwin.get_screen_ea(), 'BinExportBinary("'+filename+'.BinExport")')
 ida_pro.qexit(0)
 """
 
