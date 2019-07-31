@@ -13,7 +13,12 @@ of the program.
 Dependencies
 ------------
 
-Python binexport solely relies on:
+As ``python-binexport`` entirely relies on `Binexport`, it **has to be installed first**.
+The project is available at: https://github.com/google/binexport
+
+Note that python-binexport **requires IDA 7.2** (as it calls the ``BinExportBinary` IDC function). 
+
+The Python binexport modules solely relies on:
 
 * protobuf
 * networkx *(to represent the call graph)*
@@ -21,7 +26,7 @@ Python binexport solely relies on:
 * python-magic *(for ``binexporter``)*
 
 
-Optionallt it requires ``idascript`` (https://gitlab.qb/rdavid/idascript) to directly
+Optionally it requires ``idascript`` (https://gitlab.qb/rdavid/idascript) to directly
 generating the binexport files.
 
 
