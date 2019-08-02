@@ -11,6 +11,7 @@ from binexport import ProgramBinExport
 BINARY_FORMAT = {'application/x-dosexec',
                  'application/x-sharedlib',
                  'application/x-mach-binary',
+                 'application/x-pie-executable',
                  'application/x-executable'}
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'],
