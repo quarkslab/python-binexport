@@ -262,6 +262,8 @@ class FunctionBinExport(dict):
             if len(splitted) > 1:
                 for node1, node2 in zip(splitted, splitted[1:]):
                     self.graph.add_edge(node1, node2)
+                    self[node1].children.add(self[node2])
+                    self[node2].parents.add(self[node1])
                 rng_map[bb_idx] = [splitted[0], splitted[-1]]
 
         if bb_count != len(self):
@@ -277,6 +279,8 @@ class FunctionBinExport(dict):
             bb_dst = rng_map[tgt_idx][0] if tgt_idx in rng_map else bb_map[tgt_idx]
 
             self.graph.add_edge(bb_src, bb_dst)
+            self[bb_src].children.add(self[bb_dst])
+            self[bb_dst].parents.add(self[bb_src])
 
     def __hash__(self) -> int:
         """
@@ -344,6 +348,8 @@ class BasicBlockBinExport(OrderedDict):
         """
         super(OrderedDict, self).__init__()
         self._addr = None
+        self.parents = set()
+        self.children = set()
         for idx in range(rng.begin_index, (rng.end_index if rng.end_index else rng.begin_index + 1)):
 
             if idx != state[1] + 1:  # if the current idx is different from the previous range or bb
@@ -398,6 +404,13 @@ class BasicBlockBinExport(OrderedDict):
 
     def __repr__(self):
         return "<%s:0x%x>" % (type(self).__name__, self.addr)
+
+    def __hash__(self) -> int:
+        """
+        Make function hashable to be able to store them in sets (for parents, children)
+        :return: address of the function
+        """
+        return hash(self.addr)
 
 
 class InstructionBinExport:
