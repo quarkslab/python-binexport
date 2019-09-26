@@ -3,6 +3,8 @@
 
 import logging
 import os.path
+import pathlib
+
 import magic
 import click
 
@@ -11,8 +13,10 @@ from binexport import ProgramBinExport
 BINARY_FORMAT = {'application/x-dosexec',
                  'application/x-sharedlib',
                  'application/x-mach-binary',
-                 'application/x-pie-executable',
-                 'application/x-executable'}
+                 'application/x-executable',
+                 'application/x-pie-executable'}
+
+EXTENSIONS_WHITELIST = {'application/octet-stream': ['.dex']}
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'],
                         max_content_width=300)
@@ -20,8 +24,8 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'],
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('-i', '--ida-path', type=click.Path(exists=True), default=None, help="IDA Pro installation directory")
-@click.argument("input", type=click.Path(exists=True), metavar="<binary file>")
-def main(ida_path, input):
+@click.argument("input_file", type=click.Path(exists=True), metavar="<binary file>")
+def main(ida_path, input_file):
     """
     binexporter is a very simple utility to generate a .BinExport file
     for a given binary. It all open the binary file and export the file
@@ -31,14 +35,16 @@ def main(ida_path, input):
     logging.basicConfig(format='[%(levelname)s] %(message)s', level=logging.INFO)
 
     if ida_path:
-        os.environ['IDA_PATH'] = os.path.abspath(ida_path)
+        os.environ['IDA_PATH'] = pathlib.Path(ida_path).absolute().as_posix()
 
-    if magic.from_file(input, mime=True) not in BINARY_FORMAT:
+    mime_type = magic.from_file(input_file, mime=True)
+    input_file = pathlib.Path(input_file)
+    if mime_type not in BINARY_FORMAT and input_file.suffix not in EXTENSIONS_WHITELIST.get(mime_type, []):
         logging.error("the file is not an executable file")
         exit(1)
 
-    if ProgramBinExport.from_binary_file(input):
-        logging.info("binexport written to: %s" % (os.path.splitext(input)[0]+".BinExport"))
+    if ProgramBinExport.from_binary_file(input_file.as_posix()):
+        logging.info("binexport written to: %s" % input_file.with_suffix(".BinExport"))
         exit(0)
     else:
         exit(1)
