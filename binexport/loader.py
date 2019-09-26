@@ -1,11 +1,12 @@
 from __future__ import absolute_import
 import logging
 import os
+import pathlib
 import tempfile
 from collections import defaultdict, OrderedDict
 
 import networkx
-from typing import Dict, List, Optional, Generator, Tuple, Union
+from typing import Dict, List, Optional, Generator, Tuple, Union, Set
 from binexport.binexport2_pb2 import BinExport2
 
 IDA_EXPORT_SCRIPT = """
@@ -20,6 +21,8 @@ ida_auto.auto_wait()
 filename = os.path.splitext(ida_nalt.get_input_file_path())[0]
 rv = ida_expr.idc_value_t()
 ida_expr.eval_idc_expr(rv, ida_kernwin.get_screen_ea(), 'BinExportBinary("'+filename+'.BinExport")')
+if not rv.is_zero():
+    ida_expr.eval_idc_expr(rv, ida_kernwin.get_screen_ea(), 'BinExport2Diff("'+filename+'.BinExport")')
 ida_pro.qexit(0)
 """
 
@@ -79,7 +82,7 @@ class ProgramBinExport(dict):
     reference all functions based on their address.
     """
 
-    def __init__(self, file: str):
+    def __init__(self, file: Union[pathlib.Path, str]):
         """
         Program constructor. It takes the file path, parse the binexport and
         initialize all the functions and instructions.
@@ -100,13 +103,18 @@ class ProgramBinExport(dict):
             else:
                 self.data_refs[entry.instruction_index] = [entry.address]
 
-        # Make the address comment
+        # Make the address comment (will be deprecated)
         self.addr_refs = {}
         for entry in self.proto.address_comment[::-1]:
             if entry.instruction_index in self.addr_refs:
                 self.addr_refs[entry.instruction_index].append(self.proto.string_table[entry.string_table_index])
             else:
                 self.addr_refs[entry.instruction_index] = [self.proto.string_table[entry.string_table_index]]
+
+        # Make the string reference
+        self.string_refs: Dict = {}
+        for entry in self.proto.string_reference:
+            self.string_refs[entry.instruction_index] = entry
 
         count_f = 0
         coll = 0
@@ -144,7 +152,8 @@ class ProgramBinExport(dict):
                       (count_f, count_imp, coll, (count_f + count_imp + coll)))
 
     @staticmethod
-    def from_binary_file(exec_file: str, output_file: str="", open_export: bool=True) -> Optional['ProgramBinExport']:
+    def from_binary_file(exec_file: Union[pathlib.Path, str], output_file: Union[str, pathlib.Path] = "", open_export: bool = True)\
+            -> Optional['ProgramBinExport']:
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.
@@ -163,11 +172,14 @@ class ProgramBinExport(dict):
         retcode = ida.wait()
         os.remove(script_file)
         logging.info("%s successfully exported to BinExport [code: %d]" % (exec_file, retcode))
-        binexport_file = os.path.splitext(exec_file)[0]+".BinExport"
+
+        binexport_file = pathlib.Path(exec_file).with_suffix('.BinExport')
         if output_file:
-            os.rename(binexport_file, output_file)
+            output_file = pathlib.Path(output_file)
+            binexport_file.rename(output_file)
             binexport_file = output_file
-        if os.path.exists(binexport_file):
+
+        if binexport_file.is_file():
             return ProgramBinExport(binexport_file) if open_export else None
         else:
             logging.error("export with IDA failed for some reasons (binexport not found)")
@@ -223,8 +235,6 @@ class FunctionBinExport(dict):
         Constructor. Iterates the FlowGraph structure and initialize all the
         basic blocks and instruction accordingly.
         :param program: program (used to navigate pb fields contained inside)
-        :param data_refs: references to data (that were computed once and for all at program initialization)
-        :param addr_refs: reference to strings (that were computed once and for all at program initialization)
         :param pb_fun: FlowGraph protobuf structure
         :param is_import: whether or not its an import function (if so does not initialize bb etc..)
         :param addr: address of the function (info avalaible in the call graph)
@@ -242,7 +252,7 @@ class FunctionBinExport(dict):
 
         self.addr = _get_basic_block_addr(program.proto, pb_fun.entry_basic_block_index)
 
-        cur_state = [None, -2]  # corespond to [cur_addr, prev_idx]
+        cur_state = [None, -2]  # correspond to [cur_addr, prev_idx]
         bb_map = {}
         rng_map = {}
         bb_count = 0
@@ -323,6 +333,18 @@ class FunctionBinExport(dict):
         """
         self._pb_type = value
 
+    @property
+    def string_references(self) -> Set[str]:
+        """
+        Return the list of string referenced in this function.
+        :return: list of the string referenced
+        """
+        string_references: Set[str] = set()
+        for block in self.values():
+            string_references.update(block.string_references)
+
+        return string_references
+
     def is_import(self) -> bool:
         """
         Returns whether or not the function is an import
@@ -343,8 +365,12 @@ class BasicBlockBinExport(OrderedDict):
     def __init__(self, program: ProgramBinExport, function: FunctionBinExport,
                  rng: BinExport2.BasicBlock.IndexRange, state: list):
         """
-        Basic Block constructor. Solely takes the address in input
-        :param addr: basic block address
+        Basic Block constructor
+
+        :param program: Reference to the program
+        :param function: Reference to the function
+        :param rng: Index range of the basic block
+        :param state: List of [cur_addr, prev_idx]
         """
         super(OrderedDict, self).__init__()
         self._addr = None
@@ -382,6 +408,20 @@ class BasicBlockBinExport(OrderedDict):
 
             state[0] += len(pb_inst.raw_bytes)  # increment the cur_addr with the address size
             state[1] = idx
+
+    @property
+    def string_references(self) -> Set[str]:
+        """
+        Retrieve the list of string referenced in the basic block
+        :return: list of deduplicated string used in the basic block
+        """
+        string_references = set()
+        for instruction in self.values():
+            instruction_str = instruction.string_references
+            if instruction_str:
+                string_references.add(instruction_str)
+
+        return string_references
 
     @property
     def addr(self) -> int:
@@ -462,8 +502,8 @@ class InstructionBinExport:
         Returns a list of the operands which class are instanciated dynamically on-demand.
         :return: list of operand objects
         """
-        return [OperandBinExport(self._program, self._function, self, op_idx)
-                for op_idx in self._me().operand_index]
+        return [OperandBinExport(self._program, self._function, self, op_idx, op_offset)
+                for op_offset, op_idx in enumerate(self._me().operand_index)]
 
     @property
     def comment(self) -> str:
@@ -496,6 +536,19 @@ class InstructionBinExport:
         """
         return self.addr in self._program
 
+    @property
+    def string_references(self) -> Union[str, None]:
+        """
+        Return the list of the string referenced in the instruction
+        :return: set of the strings (may be empty)
+        """
+        string_reference = None
+        entry = self._program.string_refs.get(self._idx, None)
+        if entry:
+            string_reference = self._program.proto.string_table[entry.string_table_index]
+
+        return string_reference
+
     def __str__(self) -> str:
         return '%s %s' % (self.mnemonic, ", ".join(str(o) for o in self.operands))
 
@@ -513,7 +566,7 @@ class OperandBinExport:
     __sz_lookup = {'b1': 1, 'b2': 2, 'b4': 4, 'b8': 8, 'b10': 10, 'b16': 16, 'b32': 32, 'b64': 64}
     __sz_name = {1: 'byte', 2: 'word', 4: 'dword', 8: "qword", 10: 'b10', 16: "xmmword", 32: "ymmword", 64: "zmmword"}
 
-    def __init__(self, program: ProgramBinExport, fun: FunctionBinExport, inst: InstructionBinExport, op_idx: int):
+    def __init__(self, program: ProgramBinExport, fun: FunctionBinExport, inst: InstructionBinExport, op_idx: int, op_offset: int):
         """
         Constructor. Takes both the program, function and instruction which are used
         to compute various attributes
@@ -521,11 +574,20 @@ class OperandBinExport:
         :param fun: Function object
         :param inst: Instruction object
         :param op_idx: operand index in protobuf structure
+        :param op_offset: operand index in the instruction (first, second ...)
         """
+
         self._program = program
         self._function = fun
         self._instruction = inst
         self._idx = op_idx
+
+        # In some cases, the string ref may be attached to an operand (and an expression)
+        # If this is the case do it.
+        self.string_reference = None
+        entry = self._program.string_refs.get(inst._idx, None)
+        if entry and entry.operand_expression_index == op_offset:
+            self.string_reference = self._program.proto.string_table[entry.string_table_index]
 
     def _me(self) -> BinExport2.Operand:
         """
@@ -626,39 +688,67 @@ class OperandBinExport:
             else:
                 logging.error("Unknown case for operand type on ARM: %s" % str(self))
         else:
-            logging.error("No type found for operand: %s" % str(self))
+            logging.error("No type found for operand: %s %d" % (str(self), len(self._me().expression_index)))
 
     def __str__(self) -> str:
         """
         Formatted string of the operand (shown in-order)
         :return: string of the operand
         """
-        is_deref = False
-        exps = list(self.__iter_expressions())
-        child_count = defaultdict(int)
-        final_s = ""
-        for _, _, idx, p_idx in exps:
-            child_count[p_idx] += 1
-        while exps:
-            e = exps.pop(0)
-            typ, value, idx, pidx = e
 
-            if value == "[":
-                is_deref = True
-            if child_count[idx] > 1:
-                # The operand may have more than two operand. Still put it between the two firsts
-                child_count[idx] -= 1
-                exps.insert(1, e)
+        class Tree:
+            def __init__(self, idx: int=None, value: Union[str, int]='', operator: bool=False):
+                self.childs = []
+                self.value = value
+                self.idx = idx
+                self.operator = operator
+
+            def __str__(self):
+                inv = {"{": "}", "[": "]", '!': ''}
+
+                if isinstance(self.value, int):
+                    final_s = hex(self.value)
+                else:
+                    final_s = str(self.value)
+
+                if self.operator and self.value not in inv:
+                    final_s += '('
+
+                if len(self.childs) > 1:
+                    final_s += ','.join(str(child) for child in self.childs)
+                elif self.childs:
+                    final_s += str(self.childs[0])
+
+                if self.operator:
+                    final_s += inv.get(self.value, ')')
+
+                return final_s
+
+        exps = list(self.__iter_expressions())
+        tree = dict()
+        min_idx = default_min_idx = 999999
+        removed_nodes = dict()
+        for (type_t, value, idx, p_idx) in exps:
+
+            if value == ',' and type_t == 'symbol':
+                removed_nodes[idx] = p_idx
                 continue
 
-            if isinstance(value, int):
-                final_s += hex(value)
-            else:  # else its normally a string
-                final_s += value
+            p_idx = removed_nodes.get(p_idx, p_idx)
+            min_idx = p_idx if p_idx < min_idx else min_idx
 
-        if is_deref:
-            final_s += "]"
-        return final_s
+            if p_idx not in tree:
+                tree[p_idx] = Tree(idx=p_idx)
+
+            parent = tree[p_idx]
+            tree[idx] = Tree(idx=idx, value=value, operator=type_t == 'symbol')
+            parent.childs.append(tree[idx])
+
+        # FIXME(dm) sometimes, binexport mess up with operands that have no expressions associated
+        if min_idx == default_min_idx:
+            return ''
+
+        return str(tree[min_idx])
 
     def __repr__(self) -> str:
         return "<Op:%s>" % str(self)
