@@ -16,9 +16,12 @@ import ida_nalt
 import ida_pro
 import os.path
 import ida_kernwin
+import sys
 
 ida_auto.auto_wait()
 filename = os.path.splitext(ida_nalt.get_input_file_path())[0]
+if sys.platform == "win32":
+    filename = filename.replace("\\\\","\\\\\\\\")
 rv = ida_expr.idc_value_t()
 ida_expr.eval_idc_expr(rv, ida_kernwin.get_screen_ea(), 'BinExportBinary("'+filename+'.BinExport")')
 if not rv.is_zero():
