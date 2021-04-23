@@ -9,27 +9,6 @@ import networkx
 from typing import Dict, List, Optional, Generator, Tuple, Union, Set
 from binexport.binexport2_pb2 import BinExport2
 
-IDA_EXPORT_SCRIPT = """
-import ida_auto
-import ida_expr
-import ida_nalt
-import ida_pro
-import os.path
-import ida_kernwin
-import sys
-
-ida_auto.auto_wait()
-filename = os.path.splitext(ida_nalt.get_input_file_path())[0]
-if sys.platform == "win32":
-    filename = filename.replace("\\\\","\\\\\\\\")
-rv = ida_expr.idc_value_t()
-ida_expr.eval_idc_expr(rv, ida_kernwin.get_screen_ea(), 'BinExportBinary("'+filename+'.BinExport")')
-if not rv.is_zero():
-    ida_expr.eval_idc_expr(rv, ida_kernwin.get_screen_ea(), 'BinExport2Diff("'+filename+'.BinExport")')
-ida_pro.qexit(0)
-"""
-
-
 def _get_instruction_address(pb: BinExport2, inst_idx: int) -> int:
     """
     Low level binexport protobuf function to return the address of an instruction
@@ -167,16 +146,20 @@ class ProgramBinExport(dict):
         :return: an instance of ProgramBinExport
         """
         from idascript import IDA
-        script_file = tempfile.mktemp(".py")
-        with open(script_file, "w") as out:
-            out.write(IDA_EXPORT_SCRIPT)
-        ida = IDA(exec_file, script_file, [])
+
+        if not output_file:
+            output_file = binexport_file = pathlib.Path(exec_file).with_suffix('.BinExport')
+
+        ida = IDA(exec_file,
+                  script_file=None,
+                  script_params=["BinExportAutoAction:BinExportBinary",
+                                 f"BinExportModule:{output_file}"]
+        )
         ida.start()
         retcode = ida.wait()
-        os.remove(script_file)
+
         logging.info("%s successfully exported to BinExport [code: %d]" % (exec_file, retcode))
 
-        binexport_file = pathlib.Path(exec_file).with_suffix('.BinExport')
         if output_file:
             output_file = pathlib.Path(output_file)
             binexport_file.rename(output_file)
