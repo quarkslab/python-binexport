@@ -14,7 +14,7 @@ setup(
         'click',
         'protobuf',
         'networkx',
-        'idascript'
     ],
+    extras_require={"idascript": ["idascript"]},
     scripts=['bin/binexporter']
 )
