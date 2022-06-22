@@ -27,6 +27,7 @@ class InstructionBinExport:
         self._function = function
         self._idx = i_idx
         self.data_refs = self.program.data_refs[self._idx]
+        self.bytes = self.pb_instr.raw_bytes
 
     def __hash__(self) -> int:
         return hash(self.addr)
