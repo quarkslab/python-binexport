@@ -29,6 +29,8 @@ class BasicBlockBinExport(OrderedDict):
         self._program = program
         self.addr = None
 
+        self.bytes = b""
+
         # Ranges are in fact the true basic blocks but BinExport for some reason likes
         # to merge multiple basic blocks into one.
         # For example: BB_1 -- unconditional_jmp --> BB_2
@@ -44,6 +46,7 @@ class BasicBlockBinExport(OrderedDict):
                     self.addr = inst_addr
                     first_instr = self.program.proto.instruction[idx]
 
+                self.bytes += pb_inst.raw_bytes
                 self[inst_addr] = InstructionBinExport(
                     self._program,
                     function,
