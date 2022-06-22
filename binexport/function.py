@@ -77,6 +77,12 @@ class FunctionBinExport:
         Calling this function will also load the CFG.
         """
 
+        # Fast return if it is a imported function
+        if self.is_import():
+            if self._graph is None:
+                self._graph = networkx.DiGraph()
+            return {}
+
         bblocks = {}  # {addr : BasicBlockBinExport}
         load_graph = False
         if self._graph is None:
