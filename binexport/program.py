@@ -38,7 +38,7 @@ class ProgramBinExport(dict):
         for entry in self.proto.data_reference:
             self.data_refs[entry.instruction_index].add(entry.address)
 
-        # Make the address comment (will be deprecated)
+        # Make the address comment (deprecated)
         self.addr_refs = {}
         for entry in self.proto.address_comment[::-1]:
             if entry.instruction_index in self.addr_refs:
