@@ -110,6 +110,7 @@ class ProgramBinExport(dict):
         exec_file: pathlib.Path | str,
         output_file: str | pathlib.Path = "",
         open_export: bool = True,
+        override: bool = False
     ) -> "ProgramBinExport | None":
         """
         Generate the .BinExport file for the given program and return an instance
@@ -118,41 +119,41 @@ class ProgramBinExport(dict):
         :param exec_file: executable file path
         :param output_file: BinExport output file
         :param open_export: whether or not to open the binexport after export
+        :param override: Override the .BinExport if already existing. (default false)
         :return: an instance of ProgramBinExport
         """
         from idascript import IDA
 
-        if not output_file:
-            output_file = binexport_file = pathlib.Path(exec_file).with_suffix(
-                ".BinExport"
-            )
+        exec_file = pathlib.Path(exec_file)
+        binexport_file = pathlib.Path(output_file) if output_file else pathlib.Path(str(exec_file)+".BinExport")
+
+        # If the binexport file already exists and dont want to override just return
+        if binexport_file.exists() and not override:
+            if open_export:
+                return ProgramBinExport(binexport_file)
+            else:
+                return None
 
         ida = IDA(
             exec_file,
             script_file=None,
             script_params=[
                 "BinExportAutoAction:BinExportBinary",
-                f"BinExportModule:{output_file}",
+                f"BinExportModule:{binexport_file}",
             ],
         )
         ida.start()
         retcode = ida.wait()
 
-        logging.info(
-            "%s successfully exported to BinExport [code: %d]" % (exec_file, retcode)
-        )
+        if retcode != 0 and not binexport_file.exists():
+            # Still continue if retcode != 0, because idat64 something crashes but still manage to export file
+            logging.warning(f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]")
+            return None
 
-        if output_file:
-            output_file = pathlib.Path(output_file)
-            binexport_file.rename(output_file)
-            binexport_file = output_file
-
-        if binexport_file.is_file():
+        if binexport_file.exists():
             return ProgramBinExport(binexport_file) if open_export else None
         else:
-            logging.error(
-                "export with IDA failed for some reasons (binexport not found)"
-            )
+            logging.error(f"{exec_file} can't find binexport generated")
             return None
 
     @property

@@ -64,6 +64,18 @@ class FunctionBinExport:
     def __repr__(self) -> str:
         return "<%s: 0x%x>" % (type(self).__name__, self.addr)
 
+    def items(self):
+        return self.blocks.items()
+
+    def keys(self):
+        return self.blocks.keys()
+
+    def values(self):
+        return self.blocks.values()
+
+    def __getitem__(self, item):
+        return self.blocks[item]
+
     @property
     def program(self) -> "ProgramBinExport":
         """Wrapper on weak reference on ProgramBinExport"""
