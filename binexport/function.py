@@ -76,6 +76,9 @@ class FunctionBinExport:
     def __getitem__(self, item):
         return self.blocks[item]
 
+    def __contains__(self, item):
+        return item in self.blocks
+
     @property
     def program(self) -> "ProgramBinExport":
         """Wrapper on weak reference on ProgramBinExport"""
