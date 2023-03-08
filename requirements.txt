@@ -1,8 +1,0 @@
-protobuf
-networkx
-
-#binexporter
-python-magic
-click
-
-#idascript (needed to generate BinExport files)
