@@ -1,8 +1,13 @@
 from __future__ import annotations, absolute_import
 import enum
+from typing import TypeAlias
 
 from binexport.binexport2_pb2 import BinExport2
 
+"""
+An integer representing an address within a program
+"""
+Addr: TypeAlias = int
 
 class FunctionType(enum.Enum):
     """
