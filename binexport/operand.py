@@ -1,6 +1,6 @@
-import logging
 import weakref
 from functools import cached_property
+from typing import List
 
 from binexport.expression import ExpressionBinExport
 from binexport.types import ExpressionType
@@ -22,6 +22,7 @@ class OperandBinExport:
         """
         Constructor. Takes both the program, function and instruction which are used
         to compute various attributes
+
         :param program: Weak reference to the program
         :param function: Weak reference to the function
         :param instruction: Weak reference to the instruction
@@ -36,6 +37,7 @@ class OperandBinExport:
     def __str__(self) -> str:
         """
         Formatted string of the operand (shown in-order)
+
         :return: string of the operand
         """
 
@@ -44,7 +46,7 @@ class OperandBinExport:
                 self.children = []
                 self.expr = expr
 
-            def __str__(self):
+            def __str__(self) -> str:
                 if len(self.children) == 2:  # Binary operator
                     left = str(self.children[0])
                     right = str(self.children[1])
@@ -83,34 +85,53 @@ class OperandBinExport:
 
     @property
     def program(self) -> "ProgramBinExport":
-        """Wrapper on weak reference on ProgramBinExport"""
+        """
+        Wrapper on weak reference on ProgramBinExport
+
+        :return: the object `ProgramBinExport` that represents the program associated to the operand
+        """
+
         return self._program()
 
     @property
     def function(self) -> "FunctionBinExport":
-        """Wrapper on weak reference on FunctionBinExport"""
+        """
+        Wrapper on weak reference on FunctionBinExport
+
+        :return: the object `FunctionBinExport` that represents the function associated to the operand
+        """
+
         return self._function()
 
     @property
     def instruction(self) -> "InstructionBinExport":
-        """Wrapper on weak reference on InstructionBinExport"""
+        """
+        Wrapper on weak reference on InstructionBinExport
+
+        :return: the object `InstructionBinExport` that represents the instruction associated to the operand
+        """
+
         return self._instruction()
 
     @property
     def pb_operand(self) -> "BinExport2.Operand":
         """
         Returns the operand object in the protobuf structure
+
         :return: protobuf operand
         """
+
         return self.program.proto.operand[self._idx]
 
     @cached_property
-    def expressions(self) -> list[ExpressionBinExport]:
+    def expressions(self) -> List[ExpressionBinExport]:
         """
         Iterates over all the operand expression in a pre-order manner
         (binary operator first)
+
         :return: Pre-order tree traversal as a list of expression.
         """
+
         expr_dict = {}  # {expression protobuf idx : ExpressionBinExport}
         for exp_idx in self.pb_operand.expression_index:
             parent = None
