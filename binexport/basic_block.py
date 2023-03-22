@@ -24,6 +24,7 @@ class BasicBlockBinExport(OrderedDict):
         :param function: Weak reference to the function
         :param pb_basic_block: protobuf definition of the basic block
         """
+
         super(BasicBlockBinExport, self).__init__()
 
         self._program = program
@@ -57,17 +58,24 @@ class BasicBlockBinExport(OrderedDict):
     def __hash__(self) -> int:
         """
         Make function hashable to be able to store them in sets (for parents, children)
+
         :return: address of the function
         """
+
         return hash(self.addr)
 
     def __str__(self) -> str:
         return "\n".join(str(i) for i in self.values())
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<%s:0x%x>" % (type(self).__name__, self.addr)
 
     @property
     def program(self) -> "ProgramBinExport":
-        """Wrapper on weak reference on ProgramBinExport"""
+        """
+        Wrapper on weak reference on ProgramBinExport
+
+        :return: object `ProgramBinExport` that represents the associated program of the basic block
+        """
+
         return self._program()
