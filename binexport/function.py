@@ -5,7 +5,9 @@ from functools import cached_property
 
 from binexport.utils import get_basic_block_addr
 from binexport.basic_block import BasicBlockBinExport
-from binexport.types import FunctionType
+from binexport.types import FunctionType, Addr
+from typing import Dict
+from collections import abc
 
 
 class FunctionBinExport:
@@ -25,11 +27,13 @@ class FunctionBinExport:
         """
         Constructor. Iterates the FlowGraph structure and initialize all the
         basic blocks and instruction accordingly.
+
         :param program: weak reference to program (used to navigate pb fields contained inside)
         :param pb_fun: FlowGraph protobuf structure
-        :param is_import: whether or not its an import function (if so does not initialize bb etc..)
+        :param is_import: whether or not it's an import function (if so does not initialize bb etc..)
         :param addr: address of the function (info avalaible in the call graph)
         """
+
         super(FunctionBinExport, self).__init__()
 
         self.addr = addr  # Optional address
@@ -57,20 +61,42 @@ class FunctionBinExport:
     def __hash__(self) -> int:
         """
         Make function hashable to be able to store them in sets (for parents, children)
+
         :return: address of the function
         """
+
         return hash(self.addr)
 
     def __repr__(self) -> str:
         return "<%s: 0x%x>" % (type(self).__name__, self.addr)
 
-    def items(self):
+    def items(self) -> abc.ItemsView[Addr, "BasicBlockBinExport"]:
+        """
+        Each function is associated to a dictionnary with key-value : Addr, BasicBlockBinExport. This returns items
+        of the dictionnary
+
+        :return: Items of the function
+        """
+
         return self.blocks.items()
 
-    def keys(self):
+    def keys(self) -> abc.KeysView[Addr]:
+        """
+        Each function is associated to a dictionnary with key-value : Addr, BasicBlockBinExport. This returns items
+        of the dictionnary
+
+        :return: Keys (Addr) of the dictionnary
+        """
+
         return self.blocks.keys()
 
-    def values(self):
+    def values(self) -> abc.ValuesView["BasicBlockBinExport"]:
+        """
+        Each function is associated to a dictionnary with key-value : Addr, BasicBlockBinExport. This returns items
+        of the dictionnary
+
+        :return: Values (BasicBlockBinExport) of the dictionnary
+        """
         return self.blocks.values()
 
     def __getitem__(self, item):
@@ -81,11 +107,14 @@ class FunctionBinExport:
 
     @property
     def program(self) -> "ProgramBinExport":
-        """Wrapper on weak reference on ProgramBinExport"""
+        """
+        Wrapper on weak reference on ProgramBinExport
+        """
+
         return self._program()
 
     @cached_property
-    def blocks(self) -> dict[int, BasicBlockBinExport]:
+    def blocks(self) -> Dict[int, BasicBlockBinExport]:
         """
         Returns a dict which is used to reference all basic blocks by their address.
         The dict is by default cached, to erase the cache delete the attribute.
@@ -141,7 +170,12 @@ class FunctionBinExport:
 
     @property
     def graph(self) -> networkx.DiGraph:
-        """Returns the CFG of the function"""
+        """
+        The CFG associated to the function
+
+        :return: the networkx CFG of the function
+        """
+
         if self._graph is None:
             _ = self.blocks  # Load the CFG
         return self._graph
@@ -150,39 +184,49 @@ class FunctionBinExport:
     def name(self) -> str:
         """
         Name of the function if it exists otherwise like IDA with sub_XXX
+
         :return: name of the function
         """
+
         return self._name if self._name else "sub_%X" % self.addr
 
     @name.setter
     def name(self, name: str) -> None:
         """
         Function name setter (available in the call graph of the pb object)
+
         :param name: name to give the function
         :return: None
         """
+
         self._name = name
 
     @property
     def type(self) -> FunctionType:
         """
         Type of the function as a FunctionType
+
         :return: type enum of the function
         """
+
         return self._type
 
     @type.setter
     def type(self, value: FunctionType) -> None:
         """
         Set the type of the function
+
         :param value: type enum to give the function
         :return: None
         """
+
         self._type = value
 
     def is_import(self) -> bool:
         """
         Returns whether or not the function is an import
+
         :return: boolean indicating if the function is an import
         """
+
         return self.type == FunctionType.IMPORTED
