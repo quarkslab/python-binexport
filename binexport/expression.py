@@ -8,8 +8,11 @@ from binexport.types import ExpressionType
 
 def to_signed(n: int, mask: int) -> int:
     """
-    Returns the python int version of the signed integer `n` using the specified mask
+    Signed representation of `n` using `mask`
+
+    :return: the python int version of the signed integer `n` using the specified mask
     """
+
     assert (mask + 1) & mask == 0, "Mask must be in the form 2^n - 1"
     n &= mask
     sign_bit = (mask + 1) >> 1
@@ -17,10 +20,6 @@ def to_signed(n: int, mask: int) -> int:
 
 
 class ExpressionBinExport:
-    """
-    Class that represent an expression node in the expression tree for a specific
-    operand. The tree is inverted (each node has an edge to its parent)
-    """
 
     __sz_lookup = {
         "b1": 1,
@@ -52,6 +51,9 @@ class ExpressionBinExport:
         parent: ExpressionBinExport | None = None,
     ):
         """
+        Class that represent an expression node in the expression tree for a specific
+        operand. The tree is inverted (each node has an edge to its parent)
+
         :param program: reference to program
         :param function: reference to function
         :param instruction: reference to instruction
@@ -59,6 +61,7 @@ class ExpressionBinExport:
         :param parent: reference to the parent expression in the tree.
                        None if it is the root.
         """
+
         self._idx = exp_idx
         self.parent = parent
         self.is_addr = False  # whether the value is referring to an address
@@ -73,21 +76,40 @@ class ExpressionBinExport:
     def pb_expr(self) -> BinExport2.Expression:
         """
         Returns the operand object in the protobuf structure
+
         :return: protobuf operand
         """
+
         return self.program.proto.expression[self._idx]
 
     @property
     def type(self) -> ExpressionType:
+        """
+        Returns the type as defined in `ExpressionType` of the expression, after the protobuf parsing
+
+        :return: type of the expression
+        """
+
         return self._type
 
     @property
     def value(self) -> str | int | float:
+        """
+        Returns the value of the expression, after the protobuf parsing
+
+        :return: type of the expression
+        """
+
         return self._value
 
     @cached_property
     def depth(self) -> int:
-        """Returns the depth of the node in the tree (root is depth 0)"""
+        """
+        Returns the depth of the node in the tree (root is depth 0)
+
+        :return: depth of node
+        """
+
         if self.parent is None:
             return 0
         return self.parent.depth + 1
@@ -98,7 +120,12 @@ class ExpressionBinExport:
         function: "FunctionBinExport",
         instruction: "InstructionBinExport",
     ) -> None:
-        """Low-level expression parser. It populates self._type and self._value"""
+        """
+        Low-level expression parser. It populates self._type and self._value
+
+        :return: None
+        """
+
         pb_expr = program.proto.expression[self._idx]
         if pb_expr.type == BinExport2.Expression.SYMBOL:
             self._value = pb_expr.symbol
