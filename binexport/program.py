@@ -1,143 +1,192 @@
+import pathlib
+import logging
+import networkx
 import weakref
-from functools import cached_property
-from typing import List
+from collections import defaultdict
 
-from binexport.expression import ExpressionBinExport
-from binexport.types import ExpressionType
+from binexport.binexport2_pb2 import BinExport2
+from binexport.function import FunctionBinExport
+from binexport.types import FunctionType
 
 
-class OperandBinExport:
+class ProgramBinExport(dict):
     """
-    Class that represent an operand. The class goal is mainly
-    to iterate the operand expression.
+    Program class that represent the binexport with high-level functions
+    and an easy to use API. It inherits from a dict which is used to
+    reference all functions based on their address.
     """
 
-    def __init__(
-        self,
-        program: weakref.ref["ProgramBinExport"],
-        function: weakref.ref["FunctionBinExport"],
-        instruction: weakref.ref["InstructionBinExport"],
-        op_idx: int,
-    ):
+    def __init__(self, file: pathlib.Path | str):
         """
-        Constructor. Takes both the program, function and instruction which are used
-        to compute various attributes
+        Program constructor. It takes the file path, parse the binexport and
+        initialize all the functions and instructions.
 
-        :param program: Weak reference to the program
-        :param function: Weak reference to the function
-        :param instruction: Weak reference to the instruction
-        :param op_idx: operand index in protobuf structure
+        :param file: .BinExport file path
         """
 
-        self._program = program
-        self._function = function
-        self._instruction = instruction
-        self._idx = op_idx
+        super(ProgramBinExport, self).__init__()
 
-    def __str__(self) -> str:
-        """
-        Formatted string of the operand (shown in-order)
+        self._pb = BinExport2()
+        with open(file, "rb") as f:
+            self._pb.ParseFromString(f.read())
+        self.mask = (
+            0xFFFFFFFF if self.architecture.endswith("32") else 0xFFFFFFFFFFFFFFFF
+        )
+        self.fun_names = {}
+        self.callgraph = networkx.DiGraph()
 
-        :return: string of the operand
-        """
+        # Make the data refs map {instruction index -> address referred}
+        self.data_refs = defaultdict(set)
+        for entry in self.proto.data_reference:
+            self.data_refs[entry.instruction_index].add(entry.address)
 
-        class Tree:
-            def __init__(self, expr: ExpressionBinExport):
-                self.children = []
-                self.expr = expr
-
-            def __str__(self) -> str:
-                if len(self.children) == 2:  # Binary operator
-                    left = str(self.children[0])
-                    right = str(self.children[1])
-                    return f"{left}{self.expr.value}{right}"
-
-                inv = {"{": "}", "[": "]", "!": ""}
-                final_s = ""
-
-                if self.expr.type != ExpressionType.SIZE:  # Ignore SIZE
-                    if isinstance(self.expr.value, int):
-                        final_s += hex(self.expr.value)
-                    else:
-                        final_s += str(self.expr.value)
-
-                final_s += ",".join(str(child) for child in self.children)
-
-                if self.expr.type == ExpressionType.SYMBOL and self.expr.value in inv:
-                    final_s += inv[self.expr.value]
-
-                return final_s
-
-        tree = {}
-        for expr in self.expressions:
-            tree[expr] = Tree(expr)
-            if expr.parent:
-                tree[expr.parent].children.append(tree[expr])
+        # Make the address comment (deprecated)
+        self.addr_refs = {}
+        for entry in self.proto.address_comment[::-1]:
+            if entry.instruction_index in self.addr_refs:
+                self.addr_refs[entry.instruction_index].append(
+                    self.proto.string_table[entry.string_table_index]
+                )
             else:
-                root = expr
-        if tree:
-            return str(tree[root])
-        else:
-            return ""
+                self.addr_refs[entry.instruction_index] = [
+                    self.proto.string_table[entry.string_table_index]
+                ]
+
+        # Make the string reference
+        self.string_refs = {}
+        for entry in self.proto.string_reference:
+            self.string_refs[entry.instruction_index] = entry.string_table_index
+
+        count_f = 0
+        coll = 0
+        # Load all the functions
+        for i, pb_fun in enumerate(self.proto.flow_graph):
+            f = FunctionBinExport(weakref.ref(self), pb_fun=pb_fun)
+            if f.addr in self:
+                logging.error(f"Address collision for 0x{f.addr:x}")
+                coll += 1
+            self[f.addr] = f
+            count_f += 1
+
+        count_imp = 0
+        # Load the callgraph
+        cg = self.proto.call_graph
+        for node in cg.vertex:
+            if node.address not in self and node.type == cg.Vertex.IMPORTED:
+                self[node.address] = FunctionBinExport(
+                    weakref.ref(self), is_import=True, addr=node.address
+                )
+                count_imp += 1
+            if node.address not in self:
+                logging.error(
+                    f"Missing function address: 0x{node.address:x} ({node.type})"
+                )
+                continue
+
+            self[node.address].type = FunctionType.from_proto(node.type)
+            if node.demangled_name:
+                self[node.address].name = node.demangled_name
+            elif node.mangled_name:
+                self[node.address].name = node.mangled_name
+
+        for edge in cg.edge:
+            src = cg.vertex[edge.source_vertex_index].address
+            dst = cg.vertex[edge.target_vertex_index].address
+            self.callgraph.add_edge(src, dst)
+            self[src].children.add(self[dst])
+            self[dst].parents.add(self[src])
+
+        # Create a map of function names for quick lookup later on
+        for f in self.values():
+            self.fun_names[f.name] = f
+
+        logging.debug(
+            f"total all:{count_f}, imported:{count_imp} collision:{coll} (total:{count_f + count_imp + coll})"
+        )
 
     def __repr__(self) -> str:
-        return f"<{type(self).__name__} {str(self)}>"
+        return f"<{type(self).__name__}:{self.name}>"
+
+    @staticmethod
+    def from_binary_file(
+        exec_file: pathlib.Path | str,
+        output_file: str | pathlib.Path = "",
+        open_export: bool = True,
+        override: bool = False
+    ) -> "ProgramBinExport | None":
+        """
+        Generate the .BinExport file for the given program and return an instance
+        of ProgramBinExport.
+
+        .. warning:: That function requires the module ``idascript``
+
+        :param exec_file: executable file path
+        :param output_file: BinExport output file
+        :param open_export: whether or not to open the binexport after export
+        :param override: Override the .BinExport if already existing. (default false)
+        :return: an instance of ProgramBinExport
+        """
+
+        from idascript import IDA
+
+        exec_file = pathlib.Path(exec_file)
+        binexport_file = pathlib.Path(output_file) if output_file else pathlib.Path(str(exec_file)+".BinExport")
+
+        # If the binexport file already exists, do not want to override just return
+        if binexport_file.exists() and not override:
+            if open_export:
+                return ProgramBinExport(binexport_file)
+            else:
+                return None
+
+        ida = IDA(
+            exec_file,
+            script_file=None,
+            script_params=[
+                "BinExportAutoAction:BinExportBinary",
+                f"BinExportModule:{binexport_file}",
+            ],
+        )
+        ida.start()
+        retcode = ida.wait()
+
+        if retcode != 0 and not binexport_file.exists():
+            # Still continue if retcode != 0, because idat64 something crashes but still manage to export file
+            logging.warning(f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]")
+            return None
+
+        if binexport_file.exists():
+            return ProgramBinExport(binexport_file) if open_export else None
+        else:
+            logging.error(f"{exec_file} can't find binexport generated")
+            return None
 
     @property
-    def program(self) -> "ProgramBinExport":
+    def proto(self) -> BinExport2:
         """
-        Wrapper on weak reference on ProgramBinExport
+        Returns the protobuf object associated to the program
 
-        :return: the object `ProgramBinExport` that represents the program associated to the operand
+        :return: Low-level BinExport2 protobuf object
         """
 
-        return self._program()
+        return self._pb
 
     @property
-    def function(self) -> "FunctionBinExport":
+    def name(self) -> str:
         """
-        Wrapper on weak reference on FunctionBinExport
+        Return the name of the program (as exported by binexport)
 
-        :return: the object `FunctionBinExport` that represents the function associated to the operand
+        :return: name of the program
         """
 
-        return self._function()
+        return self.proto.meta_information.executable_name
 
     @property
-    def instruction(self) -> "InstructionBinExport":
+    def architecture(self) -> str:
         """
-        Wrapper on weak reference on InstructionBinExport
+        Returns the architecture suffixed with address size ex: x86_64, x86_32
 
-        :return: the object `InstructionBinExport` that represents the instruction associated to the operand
-        """
-
-        return self._instruction()
-
-    @property
-    def pb_operand(self) -> "BinExport2.Operand":
-        """
-        Returns the operand object in the protobuf structure
-
-        :return: protobuf operand
+        :return: architecture name
         """
 
-        return self.program.proto.operand[self._idx]
-
-    @cached_property
-    def expressions(self) -> List[ExpressionBinExport]:
-        """
-        Iterates over all the operand expression in a pre-order manner
-        (binary operator first)
-
-        :return: Pre-order tree traversal as a list of expression.
-        """
-
-        expr_dict = {}  # {expression protobuf idx : ExpressionBinExport}
-        for exp_idx in self.pb_operand.expression_index:
-            parent = None
-            if self.program.proto.expression[exp_idx].HasField("parent_index"):
-                parent = expr_dict[self.program.proto.expression[exp_idx].parent_index]
-            expr_dict[exp_idx] = ExpressionBinExport(
-                self.program, self.function, self.instruction, exp_idx, parent
-            )
-        return list(expr_dict.values())
+        return self.proto.meta_information.architecture_name
