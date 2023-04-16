@@ -1,6 +1,7 @@
 from __future__ import annotations
 import logging
 from functools import cached_property
+from typing import Optional
 
 from binexport.binexport2_pb2 import BinExport2
 from binexport.types import ExpressionType
@@ -20,6 +21,10 @@ def to_signed(n: int, mask: int) -> int:
 
 
 class ExpressionBinExport:
+    """
+    Class that represent an expression node in the expression tree for a specific
+    operand. The tree is inverted (each node has an edge to its parent)
+    """
 
     __sz_lookup = {
         "b1": 1,
@@ -42,18 +47,13 @@ class ExpressionBinExport:
         64: "zmmword",
     }
 
-    def __init__(
-        self,
-        program: "ProgramBinExport",
-        function: "FunctionBinExport",
-        instruction: "InstructionBinExport",
-        exp_idx: int,
-        parent: ExpressionBinExport | None = None,
-    ):
+    def __init__(self,
+                 program: "ProgramBinExport",
+                 function: "FunctionBinExport",
+                 instruction: "InstructionBinExport",
+                 exp_idx: int,
+                 parent: ExpressionBinExport | None = None):
         """
-        Class that represent an expression node in the expression tree for a specific
-        operand. The tree is inverted (each node has an edge to its parent)
-
         :param program: reference to program
         :param function: reference to function
         :param instruction: reference to instruction
@@ -63,9 +63,9 @@ class ExpressionBinExport:
         """
 
         self._idx = exp_idx
-        self.parent = parent
-        self.is_addr = False  # whether the value is referring to an address
-        self.is_data = False  # whether the value is a reference to data
+        self.parent: Optional[ExpressionBinExport] = parent  #: parent expression if nested
+        self.is_addr: bool = False  #: whether the value is referring to an address
+        self.is_data: bool = False  #: whether the value is a reference to data
 
         self._parse_protobuf(program, function, instruction)
 
@@ -79,7 +79,6 @@ class ExpressionBinExport:
 
         :return: protobuf operand
         """
-
         return self.program.proto.expression[self._idx]
 
     @property
@@ -97,9 +96,8 @@ class ExpressionBinExport:
         """
         Returns the value of the expression, after the protobuf parsing
 
-        :return: type of the expression
+        :return: value of the expression
         """
-
         return self._value
 
     @cached_property
@@ -109,23 +107,17 @@ class ExpressionBinExport:
 
         :return: depth of node
         """
-
         if self.parent is None:
             return 0
         return self.parent.depth + 1
 
-    def _parse_protobuf(
-        self,
-        program: "ProgramBinExport",
-        function: "FunctionBinExport",
-        instruction: "InstructionBinExport",
-    ) -> None:
+    def _parse_protobuf(self,
+                        program: "ProgramBinExport",
+                        function: "FunctionBinExport",
+                        instruction: "InstructionBinExport") -> None:
         """
         Low-level expression parser. It populates self._type and self._value
-
-        :return: None
         """
-
         pb_expr = program.proto.expression[self._idx]
         if pb_expr.type == BinExport2.Expression.SYMBOL:
             self._value = pb_expr.symbol
@@ -168,6 +160,4 @@ class ExpressionBinExport:
             self._value = pb_expr.symbol
 
         else:
-            logging.error(
-                f"Malformed protobuf message. Invalid expression type {pb_expr.type}"
-            )
+            logging.error(f"Malformed protobuf message. Invalid expression type {pb_expr.type}")

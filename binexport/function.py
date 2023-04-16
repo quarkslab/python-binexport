@@ -6,24 +6,22 @@ from functools import cached_property
 from binexport.utils import get_basic_block_addr
 from binexport.basic_block import BasicBlockBinExport
 from binexport.types import FunctionType, Addr
-from typing import Dict
+from typing import Dict, Set
 from collections import abc
 
 
 class FunctionBinExport:
     """
-    Class that represent functions. Also references its parents and children
-    (function it calls).
+    Function object.
+    Also references its parents and children (function it calls).
     """
 
-    def __init__(
-        self,
-        program: weakref.ref["ProgramBinExport"],
-        *,
-        pb_fun: "BinExport2.FlowGraph | None" = None,
-        is_import: bool = False,
-        addr: int | None = None,
-    ):
+    def __init__(self,
+                 program: weakref.ref["ProgramBinExport"],
+                 *,
+                 pb_fun: "BinExport2.FlowGraph | None" = None,
+                 is_import: bool = False,
+                 addr: Addr | None = None):
         """
         Constructor. Iterates the FlowGraph structure and initialize all the
         basic blocks and instruction accordingly.
@@ -33,12 +31,11 @@ class FunctionBinExport:
         :param is_import: whether or not it's an import function (if so does not initialize bb etc..)
         :param addr: address of the function (info avalaible in the call graph)
         """
-
         super(FunctionBinExport, self).__init__()
 
-        self.addr = addr  # Optional address
-        self.parents = set()  # Loaded by the Program constructor
-        self.children = set()  # Loaded by the Program constructor
+        self.addr: Addr | None = addr  #: address, None if imported function
+        self.parents: Set['FunctionBinExport'] = set()  #: set of function call this one
+        self.children: Set['FunctionBinExport'] = set()  #: set of functions called by this one
 
         # Private attributes
         self._graph = None  # CFG. Loaded inside self.blocks
@@ -54,9 +51,7 @@ class FunctionBinExport:
 
         assert pb_fun is not None, "pb_fun must be provided"
 
-        self.addr = get_basic_block_addr(
-            self.program.proto, pb_fun.entry_basic_block_index
-        )
+        self.addr = get_basic_block_addr(self.program.proto, pb_fun.entry_basic_block_index)
 
     def __hash__(self) -> int:
         """
@@ -64,7 +59,6 @@ class FunctionBinExport:
 
         :return: address of the function
         """
-
         return hash(self.addr)
 
     def __repr__(self) -> str:
@@ -72,55 +66,68 @@ class FunctionBinExport:
 
     def items(self) -> abc.ItemsView[Addr, "BasicBlockBinExport"]:
         """
-        Each function is associated to a dictionnary with key-value : Addr, BasicBlockBinExport. This returns items
-        of the dictionnary
+        Each function is associated to a dictionary with key-value : Addr, BasicBlockBinExport. This returns items
+        of the dictionary
 
         :return: Items of the function
         """
-
         return self.blocks.items()
 
     def keys(self) -> abc.KeysView[Addr]:
         """
-        Each function is associated to a dictionnary with key-value : Addr, BasicBlockBinExport. This returns items
-        of the dictionnary
+        Each function is associated to a dictionary with key-value : Addr, BasicBlockBinExport. This returns items
+        of the dictionary
 
-        :return: Keys (Addr) of the dictionnary
+        :return: Keys (Addr) of the dictionary
         """
 
         return self.blocks.keys()
 
     def values(self) -> abc.ValuesView["BasicBlockBinExport"]:
         """
-        Each function is associated to a dictionnary with key-value : Addr, BasicBlockBinExport. This returns items
-        of the dictionnary
+        Each function is associated to a dictionary with key-value : Addr, BasicBlockBinExport. This returns items
+        of the dictionary
 
-        :return: Values (BasicBlockBinExport) of the dictionnary
+        :return: Values (BasicBlockBinExport) of the dictionary
         """
         return self.blocks.values()
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: Addr) -> "BasicBlockBinExport":
+        """
+        Get a basic block object from its address.
+
+        :param item: address
+        :return: Basic block object
+        """
         return self.blocks[item]
 
-    def __contains__(self, item):
+    def __contains__(self, item: Addr) -> bool:
+        """
+        Return if the address given correspond to a basic block head.
+
+        :param item: basic block address
+        :return: true if basic block address into this function
+        """
         return item in self.blocks
 
     @property
     def program(self) -> "ProgramBinExport":
         """
-        Wrapper on weak reference on ProgramBinExport
-        """
+        Program in which this function belongs to.
 
+        :return: Program object
+        """
         return self._program()
 
     @cached_property
-    def blocks(self) -> Dict[int, BasicBlockBinExport]:
+    def blocks(self) -> Dict[Addr, BasicBlockBinExport]:
         """
         Returns a dict which is used to reference all basic blocks by their address.
         The dict is by default cached, to erase the cache delete the attribute.
         Calling this function will also load the CFG.
-        """
 
+        :return: dictionary of addresses to basic blocks
+        """
         # Fast return if it is a imported function
         if self.is_import():
             if self._graph is None:
@@ -136,16 +143,10 @@ class FunctionBinExport:
         # Load the basic blocks
         bb_i2a = {}  # Map {basic block index -> basic block address}
         for bb_idx in self._pb_fun.basic_block_index:
-            basic_block = BasicBlockBinExport(
-                self._program,
-                weakref.ref(self),
-                self.program.proto.basic_block[bb_idx],
-            )
+            basic_block = BasicBlockBinExport(self._program, weakref.ref(self), self.program.proto.basic_block[bb_idx])
 
             if basic_block.addr in bblocks:
-                logging.error(
-                    f"0x{self.addr:x} basic block address (0x{basic_block.addr:x}) already in(idx:{bb_idx})"
-                )
+                logging.error(f"0x{self.addr:x} basic block address (0x{basic_block.addr:x}) already in(idx:{bb_idx})")
 
             bblocks[basic_block.addr] = basic_block
             bb_i2a[bb_idx] = basic_block.addr
@@ -175,7 +176,6 @@ class FunctionBinExport:
 
         :return: the networkx CFG of the function
         """
-
         if self._graph is None:
             _ = self.blocks  # Load the CFG
         return self._graph
@@ -208,16 +208,14 @@ class FunctionBinExport:
 
         :return: type enum of the function
         """
-
         return self._type
 
     @type.setter
     def type(self, value: FunctionType) -> None:
         """
-        Set the type of the function
+        Set the type of the function.
 
         :param value: type enum to give the function
-        :return: None
         """
 
         self._type = value
@@ -228,5 +226,4 @@ class FunctionBinExport:
 
         :return: boolean indicating if the function is an import
         """
-
         return self.type == FunctionType.IMPORTED

@@ -3,27 +3,24 @@ import logging
 import networkx
 import weakref
 from collections import defaultdict
+from typing import Dict, Set
 
 from binexport.binexport2_pb2 import BinExport2
 from binexport.function import FunctionBinExport
-from binexport.types import FunctionType
+from binexport.types import FunctionType, Addr
 
 
 class ProgramBinExport(dict):
     """
-    Program class that represent the binexport with high-level functions
+    Program class that wraps the binexport with high-level functions
     and an easy to use API. It inherits from a dict which is used to
     reference all functions based on their address.
     """
 
     def __init__(self, file: pathlib.Path | str):
         """
-        Program constructor. It takes the file path, parse the binexport and
-        initialize all the functions and instructions.
-
-        :param file: .BinExport file path
+        :param file: BinExport file path
         """
-
         super(ProgramBinExport, self).__init__()
 
         self._pb = BinExport2()
@@ -32,11 +29,11 @@ class ProgramBinExport(dict):
         self.mask = (
             0xFFFFFFFF if self.architecture.endswith("32") else 0xFFFFFFFFFFFFFFFF
         )
-        self.fun_names = {}
-        self.callgraph = networkx.DiGraph()
+        self.fun_names: Dict[str, 'FunctionBinExport'] = {}  #: dictionary function name -> name
+        self.callgraph: networkx.DiGraph = networkx.DiGraph()  #: program callgraph (as Digraph)
 
         # Make the data refs map {instruction index -> address referred}
-        self.data_refs = defaultdict(set)
+        self.data_refs: Dict[int, Set[Addr]] = defaultdict(set)  #: dictionary of instruction index to set of refs
         for entry in self.proto.data_reference:
             self.data_refs[entry.instruction_index].add(entry.address)
 
@@ -101,8 +98,7 @@ class ProgramBinExport(dict):
             self.fun_names[f.name] = f
 
         logging.debug(
-            f"total all:{count_f}, imported:{count_imp} collision:{coll} (total:{count_f + count_imp + coll})"
-        )
+            f"total all:{count_f}, imported:{count_imp} collision:{coll} (total:{count_f + count_imp + coll})")
 
     def __repr__(self) -> str:
         return f"<{type(self).__name__}:{self.name}>"
@@ -168,7 +164,6 @@ class ProgramBinExport(dict):
 
         :return: Low-level BinExport2 protobuf object
         """
-
         return self._pb
 
     @property
@@ -178,7 +173,6 @@ class ProgramBinExport(dict):
 
         :return: name of the program
         """
-
         return self.proto.meta_information.executable_name
 
     @property
