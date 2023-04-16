@@ -37,8 +37,6 @@ class InstructionBinExport:
     def program(self) -> "ProgramBinExport":
         """
         Program associated with this instruction.
-
-        :return: the :py:class:`ProgramBinExport` object
         """
         return self._program()
 
@@ -46,17 +44,13 @@ class InstructionBinExport:
     def pb_instr(self) -> "BinExport2.Instruction":
         """
         Protobuf instruction object.
-
-        :return: Instruction binexport object
         """
         return self.program.proto.instruction[self._idx]
 
     @property
     def mnemonic(self) -> str:
         """
-        Mnemonic string as gathered by binexport
-
-        :return: mnemonic string (with prefix)
+        Mnemonic string as gathered by binexport (with prefix).
         """
         return self.program.proto.mnemonic[self.pb_instr.mnemonic_index].name
 
@@ -64,8 +58,6 @@ class InstructionBinExport:
     def operands(self) -> List[OperandBinExport]:
         """
         Returns a list of the operands instanciated dynamically on-demand.
-
-        :return: list of operand objects
         """
         return [
             OperandBinExport(self._program, self._function, weakref.ref(self), op_idx)

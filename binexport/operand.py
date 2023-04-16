@@ -80,9 +80,7 @@ class OperandBinExport:
     @property
     def program(self) -> "ProgramBinExport":
         """
-        Program object associated to this operand
-
-        :return: the object :py:class:`ProgramBinExport`
+        Program object associated to this operand.
         """
         return self._program()
 
@@ -90,8 +88,6 @@ class OperandBinExport:
     def function(self) -> "FunctionBinExport":
         """
         Function object associated to this operand.
-
-        :return: the :py:class:`FunctionBinExport` object
         """
 
         return self._function()
@@ -100,17 +96,13 @@ class OperandBinExport:
     def instruction(self) -> "InstructionBinExport":
         """
         Instruction object associated to this operand.
-
-        :return: the :py:class:`InstructionBinExport` object
         """
         return self._instruction()
 
     @property
     def pb_operand(self) -> "BinExport2.Operand":
         """
-        Protobuf operand object in the protobuf structure
-
-        :return: protobuf operand
+        Protobuf operand object in the protobuf structure.
         """
         return self.program.proto.operand[self._idx]
 
@@ -118,9 +110,7 @@ class OperandBinExport:
     def expressions(self) -> List[ExpressionBinExport]:
         """
         Iterates over all the operand expression in a pre-order manner
-        (binary operator first)
-
-        :return: Pre-order tree traversal as a list of expression.
+        (binary operator first).
         """
 
         expr_dict = {}  # {expression protobuf idx : ExpressionBinExport}
