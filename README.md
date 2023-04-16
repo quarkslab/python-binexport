@@ -18,14 +18,10 @@ Note that python-binexport **requires IDA 7.2** (as it calls the ``BinExportBina
 
 The Python binexport modules solely relies on:
 
-* protobuf
-* networkx *(to represent the call graph)*
-* click *(for ``binexporter``)*
-* python-magic *(for ``binexporter``)*
+## Installation
 
+    pip install python-binexport
 
-Optionally it requires ``idascript`` (https://gitlab.qb/rdavid/idascript) to directly
-generating the binexport files.
 
 
 ## Usage as a python module
