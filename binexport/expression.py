@@ -76,8 +76,6 @@ class ExpressionBinExport:
     def pb_expr(self) -> BinExport2.Expression:
         """
         Returns the operand object in the protobuf structure
-
-        :return: protobuf operand
         """
         return self.program.proto.expression[self._idx]
 
@@ -85,8 +83,6 @@ class ExpressionBinExport:
     def type(self) -> ExpressionType:
         """
         Returns the type as defined in `ExpressionType` of the expression, after the protobuf parsing
-
-        :return: type of the expression
         """
 
         return self._type
@@ -103,9 +99,7 @@ class ExpressionBinExport:
     @cached_property
     def depth(self) -> int:
         """
-        Returns the depth of the node in the tree (root is depth 0)
-
-        :return: depth of node
+        Returns the depth of the node in the tree (root is depth 0).
         """
         if self.parent is None:
             return 0

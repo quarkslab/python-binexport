@@ -161,8 +161,6 @@ class ProgramBinExport(dict):
     def proto(self) -> BinExport2:
         """
         Returns the protobuf object associated to the program
-
-        :return: Low-level BinExport2 protobuf object
         """
         return self._pb
 
@@ -170,8 +168,6 @@ class ProgramBinExport(dict):
     def name(self) -> str:
         """
         Return the name of the program (as exported by binexport)
-
-        :return: name of the program
         """
         return self.proto.meta_information.executable_name
 
@@ -179,8 +175,6 @@ class ProgramBinExport(dict):
     def architecture(self) -> str:
         """
         Returns the architecture suffixed with address size ex: x86_64, x86_32
-
-        :return: architecture name
         """
 
         return self.proto.meta_information.architecture_name

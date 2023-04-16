@@ -66,10 +66,8 @@ class FunctionBinExport:
 
     def items(self) -> abc.ItemsView[Addr, "BasicBlockBinExport"]:
         """
-        Each function is associated to a dictionary with key-value : Addr, BasicBlockBinExport. This returns items
-        of the dictionary
-
-        :return: Items of the function
+        Each function is associated to a dictionary with key-value
+        Addr->BasicBlockBinExport. This returns items of the dictionary.
         """
         return self.blocks.items()
 
@@ -77,18 +75,13 @@ class FunctionBinExport:
         """
         Each function is associated to a dictionary with key-value : Addr, BasicBlockBinExport. This returns items
         of the dictionary
-
-        :return: Keys (Addr) of the dictionary
         """
-
         return self.blocks.keys()
 
     def values(self) -> abc.ValuesView["BasicBlockBinExport"]:
         """
         Each function is associated to a dictionary with key-value : Addr, BasicBlockBinExport. This returns items
-        of the dictionary
-
-        :return: Values (BasicBlockBinExport) of the dictionary
+        of the dictionary.
         """
         return self.blocks.values()
 
@@ -113,9 +106,7 @@ class FunctionBinExport:
     @property
     def program(self) -> "ProgramBinExport":
         """
-        Program in which this function belongs to.
-
-        :return: Program object
+        :py:class:`ProgramBinExport` in which this function belongs to.
         """
         return self._program()
 
@@ -172,9 +163,7 @@ class FunctionBinExport:
     @property
     def graph(self) -> networkx.DiGraph:
         """
-        The CFG associated to the function
-
-        :return: the networkx CFG of the function
+        The networkx CFG associated to the function.
         """
         if self._graph is None:
             _ = self.blocks  # Load the CFG
@@ -184,10 +173,7 @@ class FunctionBinExport:
     def name(self) -> str:
         """
         Name of the function if it exists otherwise like IDA with sub_XXX
-
-        :return: name of the function
         """
-
         return self._name if self._name else "sub_%X" % self.addr
 
     @name.setter
@@ -223,7 +209,5 @@ class FunctionBinExport:
     def is_import(self) -> bool:
         """
         Returns whether or not the function is an import
-
-        :return: boolean indicating if the function is an import
         """
         return self.type == FunctionType.IMPORTED
