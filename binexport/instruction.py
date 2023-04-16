@@ -1,7 +1,8 @@
 import weakref
 
 from binexport.operand import OperandBinExport
-from typing import List
+from binexport.types import Addr
+from typing import List, Set
 
 
 class InstructionBinExport:
@@ -9,27 +10,19 @@ class InstructionBinExport:
     Instruction class. It represents an instruction with its operands.
     """
 
-    def __init__(
-        self,
-        program: weakref.ref["ProgramBinExport"],
-        function: weakref.ref["FunctionBinExport"],
-        addr: int,
-        i_idx: int,
-    ):
+    def __init__(self, program: "ProgramBinExport", function: "FunctionBinExport", addr: Addr, i_idx: int):
         """
-        Instruction constructor.
-
         :param program: Weak reference to the program
         :param function: Weak reference to the function
         :param addr: address of the instruction (computed outside)
-        :param i_idx: instuction index in the protobuf data structure
+        :param i_idx: instruction index in the protobuf data structure
         """
-        self.addr = addr
+        self.addr: Addr = addr  #: instruction address
         self._program = program
         self._function = function
         self._idx = i_idx
-        self.data_refs = self.program.data_refs[self._idx]
-        self.bytes = self.pb_instr.raw_bytes
+        self.data_refs: Set[Addr] = self.program.data_refs[self._idx]  #: Data references address
+        self.bytes = self.pb_instr.raw_bytes  #: bytes of the instruction (opcodes)
 
     def __hash__(self) -> int:
         return hash(self.addr)
@@ -38,41 +31,33 @@ class InstructionBinExport:
         return "%s %s" % (self.mnemonic, ", ".join(str(o) for o in self.operands))
 
     def __repr__(self) -> str:
-        return "<%s 0x%x: %s %s>" % (
-            type(self).__name__,
-            self.addr,
-            self.mnemonic,
-            ", ".join(str(x) for x in self.operands),
-        )
+        return f"<{type(self).__name__} {self.addr:#08x}: {self.mnemonic} {', '.join(str(x) for x in self.operands)}>"
 
     @property
     def program(self) -> "ProgramBinExport":
         """
-        Wrapper on weak reference on ProgramBinExport
+        Program associated with this instruction.
 
-        :return: the object `ProgramBinExport` that represents the program associated to the instruction
+        :return: the :py:class:`ProgramBinExport` object
         """
-
         return self._program()
 
     @property
     def pb_instr(self) -> "BinExport2.Instruction":
         """
-        Returns the Instruction object in the binexport protobuf
+        Protobuf instruction object.
 
         :return: Instruction binexport object
         """
-
         return self.program.proto.instruction[self._idx]
 
     @property
     def mnemonic(self) -> str:
         """
-        Returns the mnemonic string as gathered by binexport
+        Mnemonic string as gathered by binexport
 
         :return: mnemonic string (with prefix)
         """
-
         return self.program.proto.mnemonic[self.pb_instr.mnemonic_index].name
 
     @property

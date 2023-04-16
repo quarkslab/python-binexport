@@ -63,7 +63,4 @@ def instruction_index_range(rng: "Binexport2.BasicBlock.IndexRange") -> Iterator
     :param rng: binexport IndexRange object
     :return: iterator over the indices
     """
-
-    return range(
-        rng.begin_index, (rng.end_index if rng.end_index else rng.begin_index + 1)
-    )
+    return range(rng.begin_index, (rng.end_index if rng.end_index else rng.begin_index + 1))

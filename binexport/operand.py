@@ -8,27 +8,21 @@ from binexport.types import ExpressionType
 
 class OperandBinExport:
     """
-    Class that represent an operand. The class goal is mainly
-    to iterate the operand expression.
+    Operand object.
+    Provide access to the underlying expression.
     """
 
-    def __init__(
-        self,
-        program: weakref.ref["ProgramBinExport"],
-        function: weakref.ref["FunctionBinExport"],
-        instruction: weakref.ref["InstructionBinExport"],
-        op_idx: int,
-    ):
+    def __init__(self,
+                 program: weakref.ref["ProgramBinExport"],
+                 function: weakref.ref["FunctionBinExport"],
+                 instruction: weakref.ref["InstructionBinExport"],
+                 op_idx: int):
         """
-        Constructor. Takes both the program, function and instruction which are used
-        to compute various attributes
-
         :param program: Weak reference to the program
         :param function: Weak reference to the function
         :param instruction: Weak reference to the instruction
         :param op_idx: operand index in protobuf structure
         """
-
         self._program = program
         self._function = function
         self._instruction = instruction
@@ -86,19 +80,18 @@ class OperandBinExport:
     @property
     def program(self) -> "ProgramBinExport":
         """
-        Wrapper on weak reference on ProgramBinExport
+        Program object associated to this operand
 
-        :return: the object `ProgramBinExport` that represents the program associated to the operand
+        :return: the object :py:class:`ProgramBinExport`
         """
-
         return self._program()
 
     @property
     def function(self) -> "FunctionBinExport":
         """
-        Wrapper on weak reference on FunctionBinExport
+        Function object associated to this operand.
 
-        :return: the object `FunctionBinExport` that represents the function associated to the operand
+        :return: the :py:class:`FunctionBinExport` object
         """
 
         return self._function()
@@ -106,21 +99,19 @@ class OperandBinExport:
     @property
     def instruction(self) -> "InstructionBinExport":
         """
-        Wrapper on weak reference on InstructionBinExport
+        Instruction object associated to this operand.
 
-        :return: the object `InstructionBinExport` that represents the instruction associated to the operand
+        :return: the :py:class:`InstructionBinExport` object
         """
-
         return self._instruction()
 
     @property
     def pb_operand(self) -> "BinExport2.Operand":
         """
-        Returns the operand object in the protobuf structure
+        Protobuf operand object in the protobuf structure
 
         :return: protobuf operand
         """
-
         return self.program.proto.operand[self._idx]
 
     @cached_property

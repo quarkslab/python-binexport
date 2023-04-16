@@ -13,6 +13,7 @@ setup(
         "click",
         "protobuf",
         "networkx",
+        "enum_tools"
     ],
     extras_require={"idascript": ["idascript"]},
     scripts=["bin/binexporter"],
