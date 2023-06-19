@@ -1,4 +1,5 @@
 import weakref
+from functools import cached_property
 
 from binexport.operand import OperandBinExport
 from binexport.types import Addr
@@ -10,7 +11,7 @@ class InstructionBinExport:
     Instruction class. It represents an instruction with its operands.
     """
 
-    def __init__(self, program: "ProgramBinExport", function: "FunctionBinExport", addr: Addr, i_idx: int):
+    def __init__(self, program: weakref.ref["ProgramBinExport"], function: weakref.ref["FunctionBinExport"], addr: Addr, i_idx: int):
         """
         :param program: Weak reference to the program
         :param function: Weak reference to the function
@@ -54,10 +55,11 @@ class InstructionBinExport:
         """
         return self.program.proto.mnemonic[self.pb_instr.mnemonic_index].name
 
-    @property
+    @cached_property
     def operands(self) -> List[OperandBinExport]:
         """
         Returns a list of the operands instanciated dynamically on-demand.
+        The list is cached by default, to erase the cache delete the attribute.
         """
         return [
             OperandBinExport(self._program, self._function, weakref.ref(self), op_idx)

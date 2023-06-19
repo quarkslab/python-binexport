@@ -67,17 +67,13 @@ class ExpressionBinExport:
         self.is_addr: bool = False  #: whether the value is referring to an address
         self.is_data: bool = False  #: whether the value is a reference to data
 
+        # Expression object in the protobuf structure
+        self.pb_expr = program.proto.expression[self._idx]
+
         self._parse_protobuf(program, function, instruction)
 
     def __hash__(self) -> int:
         return hash(self._idx)
-
-    @property
-    def pb_expr(self) -> BinExport2.Expression:
-        """
-        Returns the operand object in the protobuf structure
-        """
-        return self.program.proto.expression[self._idx]
 
     @property
     def type(self) -> ExpressionType:
@@ -112,46 +108,45 @@ class ExpressionBinExport:
         """
         Low-level expression parser. It populates self._type and self._value
         """
-        pb_expr = program.proto.expression[self._idx]
-        if pb_expr.type == BinExport2.Expression.SYMBOL:
-            self._value = pb_expr.symbol
+        if self.pb_expr.type == BinExport2.Expression.SYMBOL:
+            self._value = self.pb_expr.symbol
 
-            if pb_expr.symbol in program.fun_names:  # It is a function name
+            if self.pb_expr.symbol in program.fun_names:  # It is a function name
                 self._type = ExpressionType.FUNC_NAME
             else:  # It is a local symbol (ex: var_, arg_)
                 self._type = ExpressionType.VAR_NAME
 
-        elif pb_expr.type == BinExport2.Expression.IMMEDIATE_INT:
+        elif self.pb_expr.type == BinExport2.Expression.IMMEDIATE_INT:
             self._type = ExpressionType.IMMEDIATE_INT
-            self._value = to_signed(pb_expr.immediate, program.mask)
+            self._value = to_signed(self.pb_expr.immediate, program.mask)
 
-            if pb_expr.immediate in instruction.data_refs:  # Data
+            if self.pb_expr.immediate in instruction.data_refs:  # Data
                 self.is_addr = True
                 self.is_data = True
             elif (
-                pb_expr.immediate in program or pb_expr.immediate in function
+                self.pb_expr.immediate in program or self.pb_expr.immediate in function
             ):  # Address
                 self.is_addr = True
 
-        elif pb_expr.type == BinExport2.Expression.IMMEDIATE_FLOAT:
+        elif self.pb_expr.type == BinExport2.Expression.IMMEDIATE_FLOAT:
             self._type = ExpressionType.IMMEDIATE_FLOAT
-            self._value = pb_expr.immediate  # Cast it to float
+            self._value = self.pb_expr.immediate  # Cast it to float
 
-        elif pb_expr.type == BinExport2.Expression.OPERATOR:
+        elif self.pb_expr.type == BinExport2.Expression.OPERATOR:
             self._type = ExpressionType.SYMBOL
-            self._value = pb_expr.symbol
+            self._value = self.pb_expr.symbol
 
-        elif pb_expr.type == BinExport2.Expression.REGISTER:
+        elif self.pb_expr.type == BinExport2.Expression.REGISTER:
             self._type = ExpressionType.REGISTER
-            self._value = pb_expr.symbol
+            self._value = self.pb_expr.symbol
 
-        elif pb_expr.type == BinExport2.Expression.SIZE_PREFIX:
+        elif self.pb_expr.type == BinExport2.Expression.SIZE_PREFIX:
             self._type = ExpressionType.SIZE
-            self._value = self.__sz_lookup[pb_expr.symbol]
+            self._value = self.__sz_lookup[self.pb_expr.symbol]
 
-        elif pb_expr.type == BinExport2.Expression.DEREFERENCE:
+        elif self.pb_expr.type == BinExport2.Expression.DEREFERENCE:
             self._type = ExpressionType.SYMBOL
-            self._value = pb_expr.symbol
+            self._value = self.pb_expr.symbol
 
         else:
-            logging.error(f"Malformed protobuf message. Invalid expression type {pb_expr.type}")
+            logging.error(f"Malformed protobuf message. Invalid expression type {self.pb_expr.type}")
