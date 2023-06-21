@@ -14,7 +14,7 @@ class BasicBlockBinExport(OrderedDict):
     methods to access instructions.
     """
 
-    def __init__(self, program: "ProgramBinExport", function: "FunctionBinExport", pb_bb: "BinExport2.BasicBlock"):
+    def __init__(self, program: weakref.ref["ProgramBinExport"], function: weakref.ref["FunctionBinExport"], pb_bb: "BinExport2.BasicBlock"):
         """
         :param program: Weak reference to the program
         :param function: Weak reference to the function
@@ -29,16 +29,15 @@ class BasicBlockBinExport(OrderedDict):
         self.bytes = b""  #: bytes of the basic block
 
         # Ranges are in fact the true basic blocks but BinExport
-        # don't have the same basic block semantic and merge multiple basic blocks into one.
+        # doesn't have the same basic block semantic and merge multiple basic blocks into one.
         # For example: BB_1 -- unconditional_jmp --> BB_2
-        # might be merged into a single basic block so lose the edge
+        # might be merged into a single basic block so the edge gets lost.
         for rng in pb_bb.instruction_index:
             for idx in instruction_index_range(rng):
                 pb_inst = self.program.proto.instruction[idx]
                 inst_addr = get_instruction_address(self.program.proto, idx)
 
                 # The first instruction determines the basic block address
-                # Save the first instruction to guess the instruction set
                 if self.addr is None:
                     self.addr = inst_addr
 

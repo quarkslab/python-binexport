@@ -111,6 +111,7 @@ class OperandBinExport:
         """
         Iterates over all the operand expression in a pre-order manner
         (binary operator first).
+        The list is cached by default, to erase the cache delete the attribute
         """
 
         expr_dict = {}  # {expression protobuf idx : ExpressionBinExport}
