@@ -11,7 +11,13 @@ class InstructionBinExport:
     Instruction class. It represents an instruction with its operands.
     """
 
-    def __init__(self, program: weakref.ref["ProgramBinExport"], function: weakref.ref["FunctionBinExport"], addr: Addr, i_idx: int):
+    def __init__(
+        self,
+        program: weakref.ref["ProgramBinExport"],
+        function: weakref.ref["FunctionBinExport"],
+        addr: Addr,
+        i_idx: int,
+    ):
         """
         :param program: Weak reference to the program
         :param function: Weak reference to the function

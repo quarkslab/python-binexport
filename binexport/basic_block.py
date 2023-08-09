@@ -14,7 +14,12 @@ class BasicBlockBinExport(OrderedDict):
     methods to access instructions.
     """
 
-    def __init__(self, program: weakref.ref["ProgramBinExport"], function: weakref.ref["FunctionBinExport"], pb_bb: "BinExport2.BasicBlock"):
+    def __init__(
+        self,
+        program: weakref.ref["ProgramBinExport"],
+        function: weakref.ref["FunctionBinExport"],
+        pb_bb: "BinExport2.BasicBlock",
+    ):
         """
         :param program: Weak reference to the program
         :param function: Weak reference to the function

@@ -16,12 +16,14 @@ class FunctionBinExport:
     Also references its parents and children (function it calls).
     """
 
-    def __init__(self,
-                 program: weakref.ref["ProgramBinExport"],
-                 *,
-                 pb_fun: "BinExport2.FlowGraph | None" = None,
-                 is_import: bool = False,
-                 addr: Addr | None = None):
+    def __init__(
+        self,
+        program: weakref.ref["ProgramBinExport"],
+        *,
+        pb_fun: "BinExport2.FlowGraph | None" = None,
+        is_import: bool = False,
+        addr: Addr | None = None,
+    ):
         """
         Constructor. Iterates the FlowGraph structure and initialize all the
         basic blocks and instruction accordingly.
@@ -34,8 +36,8 @@ class FunctionBinExport:
         super(FunctionBinExport, self).__init__()
 
         self.addr: Addr | None = addr  #: address, None if imported function
-        self.parents: Set['FunctionBinExport'] = set()  #: set of function call this one
-        self.children: Set['FunctionBinExport'] = set()  #: set of functions called by this one
+        self.parents: Set["FunctionBinExport"] = set()  #: set of function call this one
+        self.children: Set["FunctionBinExport"] = set()  #: set of functions called by this one
 
         # Private attributes
         self._graph = None  # CFG. Loaded inside self.blocks
@@ -134,10 +136,14 @@ class FunctionBinExport:
         # Load the basic blocks
         bb_i2a = {}  # Map {basic block index -> basic block address}
         for bb_idx in self._pb_fun.basic_block_index:
-            basic_block = BasicBlockBinExport(self._program, weakref.ref(self), self.program.proto.basic_block[bb_idx])
+            basic_block = BasicBlockBinExport(
+                self._program, weakref.ref(self), self.program.proto.basic_block[bb_idx]
+            )
 
             if basic_block.addr in bblocks:
-                logging.error(f"0x{self.addr:x} basic block address (0x{basic_block.addr:x}) already in(idx:{bb_idx})")
+                logging.error(
+                    f"0x{self.addr:x} basic block address (0x{basic_block.addr:x}) already in(idx:{bb_idx})"
+                )
 
             bblocks[basic_block.addr] = basic_block
             bb_i2a[bb_idx] = basic_block.addr

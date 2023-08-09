@@ -26,14 +26,13 @@ class ProgramBinExport(dict):
         self._pb = BinExport2()
         with open(file, "rb") as f:
             self._pb.ParseFromString(f.read())
-        self.mask = (
-            0xFFFFFFFF if self.architecture.endswith("32") else 0xFFFFFFFFFFFFFFFF
-        )
-        self.fun_names: Dict[str, 'FunctionBinExport'] = {}  #: dictionary function name -> name
+        self.mask = 0xFFFFFFFF if self.architecture.endswith("32") else 0xFFFFFFFFFFFFFFFF
+        self.fun_names: Dict[str, "FunctionBinExport"] = {}  #: dictionary function name -> name
         self.callgraph: networkx.DiGraph = networkx.DiGraph()  #: program callgraph (as Digraph)
 
         # Make the data refs map {instruction index -> address referred}
-        self.data_refs: Dict[int, Set[Addr]] = defaultdict(set)  #: dictionary of instruction index to set of refs
+        # dictionary of instruction index to set of refs
+        self.data_refs: Dict[int, Set[Addr]] = defaultdict(set)
         for entry in self.proto.data_reference:
             self.data_refs[entry.instruction_index].add(entry.address)
 
@@ -75,9 +74,7 @@ class ProgramBinExport(dict):
                 )
                 count_imp += 1
             if node.address not in self:
-                logging.error(
-                    f"Missing function address: 0x{node.address:x} ({node.type})"
-                )
+                logging.error(f"Missing function address: 0x{node.address:x} ({node.type})")
                 continue
 
             self[node.address].type = FunctionType.from_proto(node.type)
@@ -98,7 +95,8 @@ class ProgramBinExport(dict):
             self.fun_names[f.name] = f
 
         logging.debug(
-            f"total all:{count_f}, imported:{count_imp} collision:{coll} (total:{count_f + count_imp + coll})")
+            f"total all:{count_f}, imported:{count_imp} collision:{coll} (total:{count_f + count_imp + coll})"
+        )
 
     def __repr__(self) -> str:
         return f"<{type(self).__name__}:{self.name}>"
@@ -108,7 +106,7 @@ class ProgramBinExport(dict):
         exec_file: pathlib.Path | str,
         output_file: str | pathlib.Path = "",
         open_export: bool = True,
-        override: bool = False
+        override: bool = False,
     ) -> "ProgramBinExport | None":
         """
         Generate the .BinExport file for the given program and return an instance
@@ -126,7 +124,11 @@ class ProgramBinExport(dict):
         from idascript import IDA
 
         exec_file = pathlib.Path(exec_file)
-        binexport_file = pathlib.Path(output_file) if output_file else pathlib.Path(str(exec_file)+".BinExport")
+        binexport_file = (
+            pathlib.Path(output_file)
+            if output_file
+            else pathlib.Path(str(exec_file) + ".BinExport")
+        )
 
         # If the binexport file already exists, do not want to override just return
         if binexport_file.exists() and not override:
@@ -148,7 +150,9 @@ class ProgramBinExport(dict):
 
         if retcode != 0 and not binexport_file.exists():
             # Still continue if retcode != 0, because idat64 something crashes but still manage to export file
-            logging.warning(f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]")
+            logging.warning(
+                f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]"
+            )
             return None
 
         if binexport_file.exists():

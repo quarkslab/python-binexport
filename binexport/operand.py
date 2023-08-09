@@ -12,11 +12,13 @@ class OperandBinExport:
     Provide access to the underlying expression.
     """
 
-    def __init__(self,
-                 program: weakref.ref["ProgramBinExport"],
-                 function: weakref.ref["FunctionBinExport"],
-                 instruction: weakref.ref["InstructionBinExport"],
-                 op_idx: int):
+    def __init__(
+        self,
+        program: weakref.ref["ProgramBinExport"],
+        function: weakref.ref["FunctionBinExport"],
+        instruction: weakref.ref["InstructionBinExport"],
+        op_idx: int,
+    ):
         """
         :param program: Weak reference to the program
         :param function: Weak reference to the function
