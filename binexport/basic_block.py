@@ -1,4 +1,5 @@
 import weakref
+from functools import cached_property
 
 from binexport.utils import instruction_index_range, get_instruction_address
 from binexport.instruction import InstructionBinExport
