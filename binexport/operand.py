@@ -108,12 +108,14 @@ class OperandBinExport:
         """
         return self.program.proto.operand[self._idx]
 
-    @cached_property
-    def expressions(self) -> List[ExpressionBinExport]:
+    @property
+    def uncached_expressions(self) -> List[ExpressionBinExport]:
         """
         Iterates over all the operand expression in a pre-order manner
         (binary operator first).
-        The list is cached by default, to erase the cache delete the attribute
+        The object returned is not cached, calling this function multiple times will
+        create the same object multiple times. If you want to cache the object you
+        should use `OperandBinExport.expressions`.
         """
 
         expr_dict = {}  # {expression protobuf idx : ExpressionBinExport}
@@ -125,3 +127,13 @@ class OperandBinExport:
                 self.program, self.function, self.instruction, exp_idx, parent
             )
         return list(expr_dict.values())
+
+    @cached_property
+    def expressions(self) -> List[ExpressionBinExport]:
+        """
+        Iterates over all the operand expression in a pre-order manner
+        (binary operator first).
+        The list is cached by default, to erase the cache delete the attribute
+        """
+
+        return self.expressions

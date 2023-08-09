@@ -1,17 +1,13 @@
 import weakref
-from collections import OrderedDict
-from typing import Optional
 
 from binexport.utils import instruction_index_range, get_instruction_address
 from binexport.instruction import InstructionBinExport
 from binexport.types import Addr
 
 
-class BasicBlockBinExport(OrderedDict):
+class BasicBlockBinExport:
     """
-    Basic block.
-    It inherits OrderdDict, so one can use any dictionary
-    methods to access instructions.
+    Basic block class.
     """
 
     def __init__(
@@ -29,8 +25,10 @@ class BasicBlockBinExport(OrderedDict):
         super(BasicBlockBinExport, self).__init__()
 
         self._program = program
-        self.addr: Addr = None  #: basic bloc address
+        self._function = function
+        self.pb_bb = pb_bb
 
+        self.addr: Addr = None  #: basic bloc address
         self.bytes = b""  #: bytes of the basic block
 
         # Ranges are in fact the true basic blocks but BinExport
@@ -39,15 +37,11 @@ class BasicBlockBinExport(OrderedDict):
         # might be merged into a single basic block so the edge gets lost.
         for rng in pb_bb.instruction_index:
             for idx in instruction_index_range(rng):
-                pb_inst = self.program.proto.instruction[idx]
-                inst_addr = get_instruction_address(self.program.proto, idx)
+                self.bytes += self.program.proto.instruction[idx].raw_bytes
 
                 # The first instruction determines the basic block address
                 if self.addr is None:
-                    self.addr = inst_addr
-
-                self.bytes += pb_inst.raw_bytes
-                self[inst_addr] = InstructionBinExport(self._program, function, inst_addr, idx)
+                    self.addr = get_instruction_address(self.program.proto, idx)
 
     def __hash__(self) -> int:
         """
@@ -71,3 +65,52 @@ class BasicBlockBinExport(OrderedDict):
         :return: object :py:class:`ProgramBinExport`, program associated to the basic block
         """
         return self._program()
+
+    @property
+    def function(self) -> "FunctionBinExport":
+        """
+        Wrapper on weak reference on FunctionBinExport
+
+        :return: object :py:class:`FunctionBinExport`, function associated to the basic block
+        """
+        return self._function()
+
+    @property
+    def uncached_instructions(self) -> dict[Addr, InstructionBinExport]:
+        """
+        Returns a dict which is used to reference all the instructions in this basic
+        block by their address.
+        The object returned is not cached, calling this function multiple times will
+        create the same object multiple times. If you want to cache the object you
+        should use `BasicBlockBinExport.instructions`.
+
+        :return: dictionary of addresses to instructions
+        """
+
+        instructions = {}
+
+        # Ranges are in fact the true basic blocks but BinExport
+        # doesn't have the same basic block semantic and merge multiple basic blocks into one.
+        # For example: BB_1 -- unconditional_jmp --> BB_2
+        # might be merged into a single basic block so the edge gets lost.
+        for rng in self.pb_bb.instruction_index:
+            for idx in instruction_index_range(rng):
+                inst_addr = get_instruction_address(self.program.proto, idx)
+
+                instructions[inst_addr] = InstructionBinExport(
+                    self._program, self._function, inst_addr, idx
+                )
+
+        return instructions
+
+    @cached_property
+    def instructions(self) -> dict[Addr, InstructionBinExport]:
+        """
+        Returns a dict which is used to reference all the instructions in this basic
+        block by their address.
+        The object returned is by default cached, to erase the cache delete the attribute.
+
+        :return: dictionary of addresses to instructions
+        """
+
+        return self.uncached_instructions
