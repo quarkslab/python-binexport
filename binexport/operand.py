@@ -1,9 +1,15 @@
 import weakref
 from functools import cached_property
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from binexport.expression import ExpressionBinExport
 from binexport.types import ExpressionType
+
+if TYPE_CHECKING:
+    from .program import ProgramBinExport
+    from .function import FunctionBinExport
+    from .instruction import InstructionBinExport
+    from .binexport2_pb2 import BinExport2
 
 
 class OperandBinExport:

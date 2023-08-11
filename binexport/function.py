@@ -2,12 +2,16 @@ import logging
 import weakref
 import networkx
 from functools import cached_property
+from typing import TYPE_CHECKING, Dict, Set
 
 from binexport.utils import get_basic_block_addr
 from binexport.basic_block import BasicBlockBinExport
 from binexport.types import FunctionType, Addr
-from typing import Dict, Set
 from collections import abc
+
+if TYPE_CHECKING:
+    from .program import ProgramBinExport
+    from .binexport2_pb2 import BinExport2
 
 
 class FunctionBinExport:
