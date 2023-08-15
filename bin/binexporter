@@ -10,21 +10,28 @@ import click
 
 from binexport import ProgramBinExport
 
-BINARY_FORMAT = {'application/x-dosexec',
-                 'application/x-sharedlib',
-                 'application/x-mach-binary',
-                 'application/x-executable',
-                 'application/x-pie-executable'}
+BINARY_FORMAT = {
+    "application/x-dosexec",
+    "application/x-sharedlib",
+    "application/x-mach-binary",
+    "application/x-executable",
+    "application/x-pie-executable",
+}
 
-EXTENSIONS_WHITELIST = {'application/octet-stream': ['.dex']}
+EXTENSIONS_WHITELIST = {"application/octet-stream": [".dex"]}
 
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'],
-                        max_content_width=300)
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"], max_content_width=300)
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.option('-i', '--ida-path', type=click.Path(exists=True), default=None, help="IDA Pro installation directory")
-@click.option('-v', '--verbose', count=True, help="To activate or not the verbosity")
+@click.option(
+    "-i",
+    "--ida-path",
+    type=click.Path(exists=True),
+    default=None,
+    help="IDA Pro installation directory",
+)
+@click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
 @click.argument("input_file", type=click.Path(exists=True), metavar="<binary file>")
 def main(ida_path: str, input_file: str, verbose: bool) -> None:
     """
@@ -38,14 +45,18 @@ def main(ida_path: str, input_file: str, verbose: bool) -> None:
     :return: None
     """
 
-    logging.basicConfig(format='[%(levelname)s] %(message)s', level=logging.DEBUG if verbose else logging.INFO)
+    logging.basicConfig(
+        format="[%(levelname)s] %(message)s", level=logging.DEBUG if verbose else logging.INFO
+    )
 
     if ida_path:
-        os.environ['IDA_PATH'] = pathlib.Path(ida_path).absolute().as_posix()
+        os.environ["IDA_PATH"] = pathlib.Path(ida_path).absolute().as_posix()
 
     mime_type = magic.from_file(input_file, mime=True)
     input_file = pathlib.Path(input_file)
-    if mime_type not in BINARY_FORMAT and input_file.suffix not in EXTENSIONS_WHITELIST.get(mime_type, []):
+    if mime_type not in BINARY_FORMAT and input_file.suffix not in EXTENSIONS_WHITELIST.get(
+        mime_type, []
+    ):
         logging.error("the file is not an executable file")
         exit(1)
 
@@ -56,5 +67,5 @@ def main(ida_path: str, input_file: str, verbose: bool) -> None:
         exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

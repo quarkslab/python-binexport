@@ -47,12 +47,14 @@ class ExpressionBinExport:
         64: "zmmword",
     }
 
-    def __init__(self,
-                 program: "ProgramBinExport",
-                 function: "FunctionBinExport",
-                 instruction: "InstructionBinExport",
-                 exp_idx: int,
-                 parent: ExpressionBinExport | None = None):
+    def __init__(
+        self,
+        program: "ProgramBinExport",
+        function: "FunctionBinExport",
+        instruction: "InstructionBinExport",
+        exp_idx: int,
+        parent: ExpressionBinExport | None = None,
+    ):
         """
         :param program: reference to program
         :param function: reference to function
@@ -101,10 +103,12 @@ class ExpressionBinExport:
             return 0
         return self.parent.depth + 1
 
-    def _parse_protobuf(self,
-                        program: "ProgramBinExport",
-                        function: "FunctionBinExport",
-                        instruction: "InstructionBinExport") -> None:
+    def _parse_protobuf(
+        self,
+        program: "ProgramBinExport",
+        function: "FunctionBinExport",
+        instruction: "InstructionBinExport",
+    ) -> None:
         """
         Low-level expression parser. It populates self._type and self._value
         """
@@ -123,9 +127,7 @@ class ExpressionBinExport:
             if self.pb_expr.immediate in instruction.data_refs:  # Data
                 self.is_addr = True
                 self.is_data = True
-            elif (
-                self.pb_expr.immediate in program or self.pb_expr.immediate in function
-            ):  # Address
+            elif self.pb_expr.immediate in program or self.pb_expr.immediate in function:  # Address
                 self.is_addr = True
 
         elif self.pb_expr.type == BinExport2.Expression.IMMEDIATE_FLOAT:
@@ -149,4 +151,6 @@ class ExpressionBinExport:
             self._value = self.pb_expr.symbol
 
         else:
-            logging.error(f"Malformed protobuf message. Invalid expression type {self.pb_expr.type}")
+            logging.error(
+                f"Malformed protobuf message. Invalid expression type {self.pb_expr.type}"
+            )
