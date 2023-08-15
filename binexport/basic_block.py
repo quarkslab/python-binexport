@@ -1,10 +1,15 @@
 import weakref
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 from binexport.utils import instruction_index_range, get_instruction_address
 from binexport.instruction import InstructionBinExport
 from binexport.types import Addr
 
+if TYPE_CHECKING:
+    from .program import ProgramBinExport
+    from .function import FunctionBinExport
+    from .binexport2_pb2 import BinExport2
 
 class BasicBlockBinExport:
     """
