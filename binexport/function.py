@@ -112,15 +112,18 @@ class FunctionBinExport:
         """
         return self._program()
 
-    @cached_property
-    def blocks(self) -> Dict[Addr, BasicBlockBinExport]:
+    @property
+    def uncached_blocks(self) -> dict[Addr, BasicBlockBinExport]:
         """
         Returns a dict which is used to reference all basic blocks by their address.
-        The dict is by default cached, to erase the cache delete the attribute.
         Calling this function will also load the CFG.
+        The object returned is not cached, calling this function multiple times will
+        create the same object multiple times. If you want to cache the object you
+        should use `FunctionBinExport.blocks`.
 
         :return: dictionary of addresses to basic blocks
         """
+
         # Fast return if it is a imported function
         if self.is_import():
             if self._graph is None:
@@ -165,6 +168,18 @@ class FunctionBinExport:
                 self._graph.add_edge(bb_src, bb_dst)
 
         return bblocks
+
+    @cached_property
+    def blocks(self) -> Dict[Addr, BasicBlockBinExport]:
+        """
+        Returns a dict which is used to reference all basic blocks by their address.
+        Calling this function will also load the CFG.
+        The dict is by default cached, to erase the cache delete the attribute.
+
+        :return: dictionary of addresses to basic blocks
+        """
+
+        return self.uncached_blocks
 
     @property
     def graph(self) -> networkx.DiGraph:
