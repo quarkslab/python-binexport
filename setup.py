@@ -14,6 +14,7 @@ setup(
     author_email="rdavid@quarkslab.com",
     url="https://github.com/quarkslab/python-binexport",
     packages=["binexport"],
+    python_requires=">=3.9",
     project_urls={
         "Documentation": "https://quarkslab.github.io/diffing-portal/exporter/binexport.html#python-binexport",
         "Bug Tracker": "https://github.com/quarkslab/python-binexport/issues",
