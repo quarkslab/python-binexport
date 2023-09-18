@@ -107,7 +107,7 @@ class ProgramBinExport(dict):
         output_file: str | pathlib.Path = "",
         open_export: bool = True,
         override: bool = False,
-    ) -> "ProgramBinExport | None":
+    ) -> "ProgramBinExport | bool":
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.
@@ -118,7 +118,8 @@ class ProgramBinExport(dict):
         :param output_file: BinExport output file
         :param open_export: whether or not to open the binexport after export
         :param override: Override the .BinExport if already existing. (default false)
-        :return: an instance of ProgramBinExport
+        :return: an instance of ProgramBinExport if open_export is true, else boolean
+                 on whether it succeeded
         """
 
         from idascript import IDA
@@ -135,7 +136,7 @@ class ProgramBinExport(dict):
             if open_export:
                 return ProgramBinExport(binexport_file)
             else:
-                return None
+                return True
 
         ida = IDA(
             exec_file,
@@ -153,13 +154,13 @@ class ProgramBinExport(dict):
             logging.warning(
                 f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]"
             )
-            return None
+            return False
 
         if binexport_file.exists():
-            return ProgramBinExport(binexport_file) if open_export else None
+            return ProgramBinExport(binexport_file) if open_export else True
         else:
             logging.error(f"{exec_file} can't find binexport generated")
-            return None
+            return False
 
     @property
     def proto(self) -> BinExport2:
