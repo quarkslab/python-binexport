@@ -14,13 +14,11 @@ of the program.
 As ``python-binexport`` entirely relies on `Binexport`, it **has to be installed first**.
 The project is available at: https://github.com/google/binexport
 
-Note that python-binexport **requires IDA >=7.2** (as it calls the ``BinExportBinary` IDC function). 
+Note that python-binexport **requires IDA >=7.2** (as it calls the ``BinExportBinary`` IDC function). 
 
-[!WARNING]
-Make sure the IDA Pro binexport plugin is properly installed (and working manually) before trying
-to use it from the python library (it can hang if not installed).
+**Warning**: Make sure the IDA Pro binexport plugin is properly installed (and working manually) before trying
+    to use it from the python library (it can hang if not installed).
 
-The Python binexport modules solely relies on:
 
 ## Installation
 
@@ -28,7 +26,7 @@ The Python binexport modules solely relies on:
 
 
 
-## Usage as a python module
+## Python module usage
 
 The main intended usage of ``python-binexport`` is as a python module.
 The main entry point is the class ``ProgramBinExport`` which triggers the
@@ -53,7 +51,7 @@ all provides various attributes and method to get their type, and multiple other
 > If the module ``idascript`` is installed you can directly generate a BinExport
 > file using the ``Program.from_binary_file`` static method.
 
-## Usage as a command line
+## Command line usage
 
 The executable script ``binexporter`` provides a very basic utility
 to export a BinExport file straight from the command line *(without
