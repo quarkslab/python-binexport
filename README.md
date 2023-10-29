@@ -11,13 +11,21 @@ of the program.
 
 ## Dependencies
 
-As ``python-binexport`` entirely relies on `Binexport`, it **has to be installed first**.
-The project is available at: https://github.com/google/binexport
+Python-binexport can load any .BinExport files generated from the supported disassemblers
+IDA, Ghidra and Binary Ninja.
 
-Note that python-binexport **requires IDA >=7.2** (as it calls the ``BinExportBinary`` IDC function). 
+However to perform the export with ``binexporter`` or from the API ``ProgramBinexport.from_binary_file()``
+the IDA plugin must be installed as it is the only supported at the moment. For that it has to be [installed first from the github page](https://github.com/google/binexport).
+To use the feature python-binexport requires IDA >=7.2 (as it calls the ``BinExportBinary`` IDC function). 
 
-**Warning**: Make sure the IDA Pro binexport plugin is properly installed (and working manually) before trying
-    to use it from the python library (it can hang if not installed).
+> [!WARNING]
+> If you export files from python-binexport make sure the IDA Pro binexport plugin is properly installed
+> and works when running it manually before trying to use it from the python library (it can hang if not properly installed).
+
+
+> [!NOTE]
+> The possibility to export files using Ghidra, or Binary Ninja from python-binexport
+> might be supported in the future.
 
 
 ## Installation
