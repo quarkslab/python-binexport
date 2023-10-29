@@ -134,6 +134,10 @@ class FunctionBinExport:
                 self._graph = networkx.DiGraph()
             return {}
 
+        # Add a sanity check to prevent error, for some reason _pb_fun may be undefined
+        if not self._pb_fun:
+            return {}
+
         bblocks = {}  # {addr : BasicBlockBinExport}
         load_graph = False
         if self._graph is None:

@@ -86,9 +86,11 @@ class ProgramBinExport(dict):
         for edge in cg.edge:
             src = cg.vertex[edge.source_vertex_index].address
             dst = cg.vertex[edge.target_vertex_index].address
-            self.callgraph.add_edge(src, dst)
-            self[src].children.add(self[dst])
-            self[dst].parents.add(self[src])
+            # Unsure that both src and dst exists (Sometimes SRE like Ghidra export function that doesn't exists)
+            if src in self and dst in self:
+                self.callgraph.add_edge(src, dst)
+                self[src].children.add(self[dst])
+                self[dst].parents.add(self[src])
 
         # Create a map of function names for quick lookup later on
         for f in self.values():
