@@ -6,7 +6,7 @@ with open("README.md") as f:
 
 setup(
     name="python-binexport",
-    version="0.1.0",
+    version="0.2.0",
     description="Python wrapper to manipulate binexport files (protobuf)",
     long_description_content_type='text/markdown',
     long_description=README,
