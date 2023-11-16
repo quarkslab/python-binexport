@@ -142,4 +142,4 @@ class OperandBinExport:
         The list is cached by default, to erase the cache delete the attribute
         """
 
-        return self.expressions
+        return self.uncached_expressions
