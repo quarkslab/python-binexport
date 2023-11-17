@@ -49,6 +49,8 @@ class FunctionBinExport:
         self._name = None  # Set by the Program constructor
         self._program = program
         self._pb_fun = pb_fun
+        self._enable_unloading = False
+        self._basic_blocks = None
 
         if is_import:
             if self.addr is None:
@@ -69,6 +71,29 @@ class FunctionBinExport:
 
     def __repr__(self) -> str:
         return "<%s: 0x%x>" % (type(self).__name__, self.addr)
+
+    def __enter__(self) -> None:
+        """Preload basic blocks and don't deallocate them until __exit__ is called"""
+
+        self._enable_unloading = False
+        self.preload()
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        """Deallocate all the basic blocks"""
+
+        self._enable_unloading = True
+        self.unload()
+
+    def preload(self) -> None:
+        """Load in memory all the basic blocks"""
+
+        self._basic_blocks = self.blocks
+
+    def unload(self) -> None:
+        """Unload from memory all the basic blocks"""
+
+        if self._enable_unloading:
+            self._basic_blocks = None
 
     def items(self) -> abc.ItemsView[Addr, "BasicBlockBinExport"]:
         """
@@ -117,16 +142,33 @@ class FunctionBinExport:
         return self._program()
 
     @property
-    def uncached_blocks(self) -> dict[Addr, BasicBlockBinExport]:
+    def blocks(self) -> Dict[Addr, BasicBlockBinExport]:
         """
         Returns a dict which is used to reference all basic blocks by their address.
         Calling this function will also load the CFG.
-        The object returned is not cached, calling this function multiple times will
+        By default the object returned is not cached, calling this function multiple times will
         create the same object multiple times. If you want to cache the object you
-        should use `FunctionBinExport.blocks`.
+        should use the context manager of the function or calling the function `FunctionBinExport.load`.
+        Ex:
+
+        .. code-block:: python
+            :linenos:
+
+            # func: FunctionBinExport
+            with func:  # Loading all the basic blocks
+                for bb_addr, bb in func.blocks.items():  # Blocks are already loaded
+                    pass
+                # The blocks are still loaded
+                for bb_addr, bb in func.blocks.items():
+                    pass
+            # here the blocks have been unloaded
 
         :return: dictionary of addresses to basic blocks
         """
+
+        # Check if the blocks are already loaded
+        if self._basic_blocks is not None:
+            return self._basic_blocks
 
         # Fast return if it is a imported function
         if self.is_import():
@@ -176,18 +218,6 @@ class FunctionBinExport:
                 self._graph.add_edge(bb_src, bb_dst)
 
         return bblocks
-
-    @cached_property
-    def blocks(self) -> Dict[Addr, BasicBlockBinExport]:
-        """
-        Returns a dict which is used to reference all basic blocks by their address.
-        Calling this function will also load the CFG.
-        The dict is by default cached, to erase the cache delete the attribute.
-
-        :return: dictionary of addresses to basic blocks
-        """
-
-        return self.uncached_blocks
 
     @property
     def graph(self) -> networkx.DiGraph:
