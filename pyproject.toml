@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-binexport"
-version = "0.1.0"
+version = "0.2.1"
 description = "Python wrapper to manipulate binexport files (protobuf)"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [{ name = "Quarkslab", email = "diffing@quarkslab.com" }]
@@ -15,6 +15,7 @@ dependencies = [
     "protobuf",
     "networkx",
     "enum_tools",
+    "idascript",
 ]
 classifiers = [
     'Topic :: Security',
@@ -27,9 +28,6 @@ Homepage = "https://github.com/quarkslab/python-binexport"
 Repository = "https://github.com/quarkslab/python-binexport"
 Documentation = "https://quarkslab.github.io/diffing-portal/exporter/binexport.html#python-binexport"
 "Bug Tracker" = "https://github.com/quarkslab/python-binexport/issues"
-
-[project.optional-dependencies]
-idascript = ["idascript"]
 
 [tools.setuptools]
 script-files = ["bin/binexporter"]
