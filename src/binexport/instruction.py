@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .function import FunctionBinExport
     from .binexport2_pb2 import BinExport2
 
+
 class InstructionBinExport:
     """
     Instruction class. It represents an instruction with its operands.
@@ -65,23 +66,16 @@ class InstructionBinExport:
         """
         return self.program.proto.mnemonic[self.pb_instr.mnemonic_index].name
 
-    @property
-    def uncached_operands(self) -> list[OperandBinExport]:
-        """
-        Returns a list of the operands instanciated dynamically on-demand.
-        The object returned is not cached, calling this function multiple times will
-        create the same object multiple times. If you want to cache the object you
-        should use `InstructionBinExport.operands`.
-        """
-        return [
-            OperandBinExport(self._program, self._function, weakref.ref(self), op_idx)
-            for op_idx in self.pb_instr.operand_index
-        ]
-
     @cached_property
     def operands(self) -> List[OperandBinExport]:
         """
         Returns a list of the operands instanciated dynamically on-demand.
         The list is cached by default, to erase the cache delete the attribute.
+
+        :return: list of operands
         """
-        return self.uncached_operands
+
+        return [
+            OperandBinExport(self._program, self._function, weakref.ref(self), op_idx)
+            for op_idx in self.pb_instr.operand_index
+        ]

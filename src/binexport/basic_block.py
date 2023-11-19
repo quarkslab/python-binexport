@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .function import FunctionBinExport
     from .binexport2_pb2 import BinExport2
 
+
 class BasicBlockBinExport:
     """
     Basic block class.
@@ -81,14 +82,12 @@ class BasicBlockBinExport:
         """
         return self._function()
 
-    @property
-    def uncached_instructions(self) -> dict[Addr, InstructionBinExport]:
+    @cached_property
+    def instructions(self) -> dict[Addr, InstructionBinExport]:
         """
         Returns a dict which is used to reference all the instructions in this basic
         block by their address.
-        The object returned is not cached, calling this function multiple times will
-        create the same object multiple times. If you want to cache the object you
-        should use `BasicBlockBinExport.instructions`.
+        The object returned is by default cached, to erase the cache delete the attribute.
 
         :return: dictionary of addresses to instructions
         """
@@ -108,15 +107,3 @@ class BasicBlockBinExport:
                 )
 
         return instructions
-
-    @cached_property
-    def instructions(self) -> dict[Addr, InstructionBinExport]:
-        """
-        Returns a dict which is used to reference all the instructions in this basic
-        block by their address.
-        The object returned is by default cached, to erase the cache delete the attribute.
-
-        :return: dictionary of addresses to instructions
-        """
-
-        return self.uncached_instructions
