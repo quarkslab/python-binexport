@@ -31,8 +31,8 @@ Repository = "https://github.com/quarkslab/python-binexport"
 Documentation = "https://quarkslab.github.io/diffing-portal/exporter/binexport.html#python-binexport"
 "Bug Tracker" = "https://github.com/quarkslab/python-binexport/issues"
 
-[tools.setuptools]
-script-files = ["bin/binexporter"]
+[project.scripts]
+binexporter = 'binexport.__main__:main'
 
 [tool.black]
 line-length = 100
