@@ -8,6 +8,8 @@ version = "0.2.1"
 description = "Python wrapper to manipulate binexport files (protobuf)"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [{ name = "Quarkslab", email = "diffing@quarkslab.com" }]
+license = {text = "AGPL-3.0"}
+requires-python = ">=3.9"
 dependencies = [
     "python-magic",
     "python-magic-bin; os_name=='nt'",
