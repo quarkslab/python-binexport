@@ -1,15 +1,16 @@
+from __future__ import annotations
 import weakref
 from functools import cached_property
 from typing import TYPE_CHECKING
 
 from binexport.utils import instruction_index_range, get_instruction_address
 from binexport.instruction import InstructionBinExport
-from binexport.types import Addr
 
 if TYPE_CHECKING:
-    from .program import ProgramBinExport
-    from .function import FunctionBinExport
-    from .binexport2_pb2 import BinExport2
+    from binexport.program import ProgramBinExport
+    from binexport.function import FunctionBinExport
+    from binexport.binexport2_pb2 import BinExport2
+    from binexport.types import Addr
 
 
 class BasicBlockBinExport:
@@ -19,9 +20,9 @@ class BasicBlockBinExport:
 
     def __init__(
         self,
-        program: weakref.ref["ProgramBinExport"],
-        function: weakref.ref["FunctionBinExport"],
-        pb_bb: "BinExport2.BasicBlock",
+        program: weakref.ref[ProgramBinExport],
+        function: weakref.ref[FunctionBinExport],
+        pb_bb: BinExport2.BasicBlock,
     ):
         """
         :param program: Weak reference to the program
@@ -65,7 +66,7 @@ class BasicBlockBinExport:
         return "<%s:0x%x>" % (type(self).__name__, self.addr)
 
     @property
-    def program(self) -> "ProgramBinExport":
+    def program(self) -> ProgramBinExport:
         """
         Wrapper on weak reference on ProgramBinExport
 
@@ -74,7 +75,7 @@ class BasicBlockBinExport:
         return self._program()
 
     @property
-    def function(self) -> "FunctionBinExport":
+    def function(self) -> FunctionBinExport:
         """
         Wrapper on weak reference on FunctionBinExport
 

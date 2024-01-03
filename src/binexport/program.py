@@ -1,13 +1,17 @@
+from __future__ import annotations
 import pathlib
 import logging
 import networkx
 import weakref
 from collections import defaultdict
-from typing import Dict, Set
+from typing import TYPE_CHECKING
 
 from binexport.binexport2_pb2 import BinExport2
 from binexport.function import FunctionBinExport
-from binexport.types import FunctionType, Addr
+from binexport.types import FunctionType
+
+if TYPE_CHECKING:
+    from binexport.types import Addr
 
 
 class ProgramBinExport(dict):
@@ -27,12 +31,12 @@ class ProgramBinExport(dict):
         with open(file, "rb") as f:
             self._pb.ParseFromString(f.read())
         self.mask = 0xFFFFFFFF if self.architecture.endswith("32") else 0xFFFFFFFFFFFFFFFF
-        self.fun_names: Dict[str, "FunctionBinExport"] = {}  #: dictionary function name -> name
+        self.fun_names: dict[str, FunctionBinExport] = {}  #: dictionary function name -> name
         self.callgraph: networkx.DiGraph = networkx.DiGraph()  #: program callgraph (as Digraph)
 
         # Make the data refs map {instruction index -> address referred}
         # dictionary of instruction index to set of refs
-        self.data_refs: Dict[int, Set[Addr]] = defaultdict(set)
+        self.data_refs: dict[int, set[Addr]] = defaultdict(set)
         for entry in self.proto.data_reference:
             self.data_refs[entry.instruction_index].add(entry.address)
 
@@ -109,7 +113,7 @@ class ProgramBinExport(dict):
         output_file: str | pathlib.Path = "",
         open_export: bool = True,
         override: bool = False,
-    ) -> "ProgramBinExport | bool":
+    ) -> ProgramBinExport | bool:
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.

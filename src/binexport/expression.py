@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from binexport.binexport2_pb2 import BinExport2
 from binexport.types import ExpressionType
@@ -54,9 +54,9 @@ class ExpressionBinExport:
 
     def __init__(
         self,
-        program: "ProgramBinExport",
-        function: "FunctionBinExport",
-        instruction: "InstructionBinExport",
+        program: ProgramBinExport,
+        function: FunctionBinExport,
+        instruction: InstructionBinExport,
         exp_idx: int,
         parent: ExpressionBinExport | None = None,
     ):
@@ -70,7 +70,7 @@ class ExpressionBinExport:
         """
 
         self._idx = exp_idx
-        self.parent: Optional[ExpressionBinExport] = parent  #: parent expression if nested
+        self.parent: ExpressionBinExport | None = parent  #: parent expression if nested
         self.is_addr: bool = False  #: whether the value is referring to an address
         self.is_data: bool = False  #: whether the value is a reference to data
 
@@ -110,9 +110,9 @@ class ExpressionBinExport:
 
     def _parse_protobuf(
         self,
-        program: "ProgramBinExport",
-        function: "FunctionBinExport",
-        instruction: "InstructionBinExport",
+        program: ProgramBinExport,
+        function: FunctionBinExport,
+        instruction: InstructionBinExport,
     ) -> None:
         """
         Low-level expression parser. It populates self._type and self._value

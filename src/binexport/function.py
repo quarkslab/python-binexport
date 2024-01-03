@@ -1,17 +1,19 @@
+from __future__ import annotations
 import logging
 import weakref
 import networkx
 from functools import cached_property
-from typing import TYPE_CHECKING, Dict, Set
+from typing import TYPE_CHECKING
 
 from binexport.utils import get_basic_block_addr
 from binexport.basic_block import BasicBlockBinExport
-from binexport.types import FunctionType, Addr
-from collections import abc
+from binexport.types import FunctionType
 
 if TYPE_CHECKING:
-    from .program import ProgramBinExport
-    from .binexport2_pb2 import BinExport2
+    from collections import abc
+    from binexport.program import ProgramBinExport
+    from binexport.binexport2_pb2 import BinExport2
+    from binexport.types import Addr
 
 
 class FunctionBinExport:
@@ -22,9 +24,9 @@ class FunctionBinExport:
 
     def __init__(
         self,
-        program: weakref.ref["ProgramBinExport"],
+        program: weakref.ref[ProgramBinExport],
         *,
-        pb_fun: "BinExport2.FlowGraph | None" = None,
+        pb_fun: BinExport2.FlowGraph | None = None,
         is_import: bool = False,
         addr: Addr | None = None,
     ):
@@ -40,8 +42,8 @@ class FunctionBinExport:
         super(FunctionBinExport, self).__init__()
 
         self.addr: Addr | None = addr  #: address, None if imported function
-        self.parents: Set["FunctionBinExport"] = set()  #: set of function call this one
-        self.children: Set["FunctionBinExport"] = set()  #: set of functions called by this one
+        self.parents: set[FunctionBinExport] = set()  #: set of function call this one
+        self.children: set[FunctionBinExport] = set()  #: set of functions called by this one
 
         # Private attributes
         self._graph = None  # CFG. Loaded inside self.blocks
@@ -95,7 +97,7 @@ class FunctionBinExport:
         if self._enable_unloading:
             self._basic_blocks = None
 
-    def items(self) -> abc.ItemsView[Addr, "BasicBlockBinExport"]:
+    def items(self) -> abc.ItemsView[Addr, BasicBlockBinExport]:
         """
         Each function is associated to a dictionary with key-value
         Addr->BasicBlockBinExport. This returns items of the dictionary.
@@ -109,14 +111,14 @@ class FunctionBinExport:
         """
         return self.blocks.keys()
 
-    def values(self) -> abc.ValuesView["BasicBlockBinExport"]:
+    def values(self) -> abc.ValuesView[BasicBlockBinExport]:
         """
         Each function is associated to a dictionary with key-value : Addr, BasicBlockBinExport. This returns items
         of the dictionary.
         """
         return self.blocks.values()
 
-    def __getitem__(self, item: Addr) -> "BasicBlockBinExport":
+    def __getitem__(self, item: Addr) -> BasicBlockBinExport:
         """
         Get a basic block object from its address.
 
@@ -135,14 +137,14 @@ class FunctionBinExport:
         return item in self.blocks
 
     @property
-    def program(self) -> "ProgramBinExport":
+    def program(self) -> ProgramBinExport:
         """
         :py:class:`ProgramBinExport` in which this function belongs to.
         """
         return self._program()
 
     @property
-    def blocks(self) -> Dict[Addr, BasicBlockBinExport]:
+    def blocks(self) -> dict[Addr, BasicBlockBinExport]:
         """
         Returns a dict which is used to reference all basic blocks by their address.
         Calling this function will also load the CFG.

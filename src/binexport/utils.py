@@ -1,5 +1,10 @@
+from __future__ import annotations
 from collections.abc import Iterator
-from binexport.types import Addr
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from binexport.binexport2_pb2 import Binexport2
+    from binexport.types import Addr
 
 
 def get_instruction_address(pb: "BinExport2", inst_idx: int) -> Addr:
@@ -19,7 +24,7 @@ def get_instruction_address(pb: "BinExport2", inst_idx: int) -> Addr:
         return backtrack_instruction_address(pb, inst_idx)
 
 
-def backtrack_instruction_address(pb: "BinExport2", idx: int) -> int:
+def backtrack_instruction_address(pb: BinExport2, idx: int) -> int:
     """
     Low level function to backtrack the instruction array for instruction that
     does not have the address field set
@@ -41,7 +46,7 @@ def backtrack_instruction_address(pb: "BinExport2", idx: int) -> int:
     return pb.instruction[tmp_idx].address + tmp_sz
 
 
-def get_basic_block_addr(pb: "BinExport2", bb_idx: int) -> Addr:
+def get_basic_block_addr(pb: BinExport2, bb_idx: int) -> Addr:
     """
     Low level function to retrieve the basic block address from its index.
     The function takes the first instruction of the basic block and retrieve
@@ -56,7 +61,7 @@ def get_basic_block_addr(pb: "BinExport2", bb_idx: int) -> Addr:
     return get_instruction_address(pb, inst)
 
 
-def instruction_index_range(rng: "Binexport2.BasicBlock.IndexRange") -> Iterator[int]:
+def instruction_index_range(rng: Binexport2.BasicBlock.IndexRange) -> Iterator[int]:
     """
     Low level function to iterate over the indices of a protobuf IndexRange.
 
