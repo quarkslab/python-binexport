@@ -1,7 +1,7 @@
-from __future__ import annotations, absolute_import
+from __future__ import annotations
 import enum
-from typing import TypeAlias
 import enum_tools.documentation
+from typing import TypeAlias
 
 from binexport.binexport2_pb2 import BinExport2
 

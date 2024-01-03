@@ -1,11 +1,12 @@
-import weakref
+from __future__ import annotations
 from functools import cached_property
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from binexport.expression import ExpressionBinExport
 from binexport.types import ExpressionType
 
 if TYPE_CHECKING:
+    import weakref
     from .program import ProgramBinExport
     from .function import FunctionBinExport
     from .instruction import InstructionBinExport
@@ -20,9 +21,9 @@ class OperandBinExport:
 
     def __init__(
         self,
-        program: weakref.ref["ProgramBinExport"],
-        function: weakref.ref["FunctionBinExport"],
-        instruction: weakref.ref["InstructionBinExport"],
+        program: weakref.ref[ProgramBinExport],
+        function: weakref.ref[FunctionBinExport],
+        instruction: weakref.ref[InstructionBinExport],
         op_idx: int,
     ):
         """
@@ -86,14 +87,14 @@ class OperandBinExport:
         return f"<{type(self).__name__} {str(self)}>"
 
     @property
-    def program(self) -> "ProgramBinExport":
+    def program(self) -> ProgramBinExport:
         """
         Program object associated to this operand.
         """
         return self._program()
 
     @property
-    def function(self) -> "FunctionBinExport":
+    def function(self) -> FunctionBinExport:
         """
         Function object associated to this operand.
         """
@@ -101,21 +102,21 @@ class OperandBinExport:
         return self._function()
 
     @property
-    def instruction(self) -> "InstructionBinExport":
+    def instruction(self) -> InstructionBinExport:
         """
         Instruction object associated to this operand.
         """
         return self._instruction()
 
     @property
-    def pb_operand(self) -> "BinExport2.Operand":
+    def pb_operand(self) -> BinExport2.Operand:
         """
         Protobuf operand object in the protobuf structure.
         """
         return self.program.proto.operand[self._idx]
 
     @cached_property
-    def expressions(self) -> List[ExpressionBinExport]:
+    def expressions(self) -> list[ExpressionBinExport]:
         """
         Iterates over all the operand expression in a pre-order manner
         (binary operator first).
