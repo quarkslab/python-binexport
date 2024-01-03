@@ -17,15 +17,13 @@ jobs:
       - name: Install dependencies
         run: pip install build
       - name: Build wheel and sdist
-        run: python -m buld
-      - uses: actions/upload-artifact@v3
+        run: python -m build
+      - uses: actions/upload-artifact@v4
         with:
           name: artifact
-          path: ./wheels/python_binexport*.whl
-      - uses: actions/upload-artifact@v3
-        with:
-          name: artifact
-          path: dist/*.tar.gz
+          path: |
+            ./dist/python_binexport*.whl
+            ./dist/*.tar.gz
 
   upload_pypi:
     needs: build_wheel_and_sdist
