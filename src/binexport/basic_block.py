@@ -62,7 +62,7 @@ class BasicBlockBinExport:
         return hash(self.addr)
 
     def __str__(self) -> str:
-        return "\n".join(str(i) for i in self.values())
+        return "\n".join(str(i) for i in self.instructions.values())
 
     def __repr__(self) -> str:
         return "<%s:0x%x>" % (type(self).__name__, self.addr)
