@@ -28,6 +28,9 @@ class ProgramBinExport(dict):
         super(ProgramBinExport, self).__init__()
 
         self._pb = BinExport2()
+
+        self.path: pathlib.Path = pathlib.Path(file)  #: Binexport file path
+
         with open(file, "rb") as f:
             self._pb.ParseFromString(f.read())
         self.mask = 0xFFFFFFFF if self.architecture.endswith("32") else 0xFFFFFFFFFFFFFFFF
