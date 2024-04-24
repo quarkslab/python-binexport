@@ -38,6 +38,7 @@ class BasicBlockBinExport:
 
         self.addr: Addr = None  #: basic bloc address
         self.bytes = b""  #: bytes of the basic block
+        self._len = 0  #: Length of the basic block (number of instructions)
 
         # Ranges are in fact the true basic blocks but BinExport
         # doesn't have the same basic block semantic and merge multiple basic blocks into one.
@@ -46,6 +47,7 @@ class BasicBlockBinExport:
         for rng in pb_bb.instruction_index:
             for idx in instruction_index_range(rng):
                 self.bytes += self.program.proto.instruction[idx].raw_bytes
+                self._len += 1
 
                 # The first instruction determines the basic block address
                 if self.addr is None:
@@ -64,6 +66,9 @@ class BasicBlockBinExport:
 
     def __repr__(self) -> str:
         return "<%s:0x%x>" % (type(self).__name__, self.addr)
+
+    def __len__(self) -> int:
+        return self._len
 
     @property
     def program(self) -> ProgramBinExport:
