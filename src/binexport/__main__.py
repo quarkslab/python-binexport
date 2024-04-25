@@ -39,7 +39,7 @@ class Bcolors:
 
 def recursive_file_iter(p: Path) -> Generator[Path, None, None]:
     if p.is_file():
-        mime_type = magic.from_file(p, mime=True)
+        mime_type = magic.from_file(str(p), mime=True)
         if mime_type not in BINARY_FORMAT and p.suffix not in EXTENSIONS_WHITELIST.get(
             mime_type, []
         ):
