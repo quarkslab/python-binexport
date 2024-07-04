@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
@@ -69,3 +70,7 @@ def instruction_index_range(rng: Binexport2.BasicBlock.IndexRange) -> Iterator[i
     :return: iterator over the indices
     """
     return range(rng.begin_index, (rng.end_index if rng.end_index else rng.begin_index + 1))
+
+
+# Main logger object
+logger = logging.getLogger("pyhton-binexport")

@@ -1,6 +1,5 @@
 from __future__ import annotations
 import pathlib
-import logging
 import networkx
 import weakref
 from collections import defaultdict
@@ -9,6 +8,7 @@ from typing import TYPE_CHECKING
 from binexport.binexport2_pb2 import BinExport2
 from binexport.function import FunctionBinExport
 from binexport.types import FunctionType
+from binexport.utils import logger
 
 if TYPE_CHECKING:
     from binexport.types import Addr
@@ -66,7 +66,7 @@ class ProgramBinExport(dict):
         for i, pb_fun in enumerate(self.proto.flow_graph):
             f = FunctionBinExport(weakref.ref(self), pb_fun=pb_fun)
             if f.addr in self:
-                logging.error(f"Address collision for 0x{f.addr:x}")
+                logger.error(f"Address collision for 0x{f.addr:x}")
                 coll += 1
             self[f.addr] = f
             count_f += 1
@@ -81,7 +81,7 @@ class ProgramBinExport(dict):
                 )
                 count_imp += 1
             if node.address not in self:
-                logging.error(f"Missing function address: 0x{node.address:x} ({node.type})")
+                logger.error(f"Missing function address: 0x{node.address:x} ({node.type})")
                 continue
 
             self[node.address].type = FunctionType.from_proto(node.type)
@@ -103,7 +103,7 @@ class ProgramBinExport(dict):
         for f in self.values():
             self.fun_names[f.name] = f
 
-        logging.debug(
+        logger.debug(
             f"total all:{count_f}, imported:{count_imp} collision:{coll} (total:{count_f + count_imp + coll})"
         )
 
@@ -160,7 +160,7 @@ class ProgramBinExport(dict):
 
         if retcode != 0 and not binexport_file.exists():
             # Still continue if retcode != 0, because idat64 something crashes but still manage to export file
-            logging.warning(
+            logger.warning(
                 f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]"
             )
             return False
@@ -168,7 +168,7 @@ class ProgramBinExport(dict):
         if binexport_file.exists():
             return ProgramBinExport(binexport_file) if open_export else True
         else:
-            logging.error(f"{exec_file} can't find binexport generated")
+            logger.error(f"{exec_file} can't find binexport generated")
             return False
 
     @property

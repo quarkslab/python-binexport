@@ -1,10 +1,10 @@
 from __future__ import annotations
-import logging
 from functools import cached_property
 from typing import TYPE_CHECKING
 
 from binexport.binexport2_pb2 import BinExport2
 from binexport.types import ExpressionType
+from binexport.utils import logger
 
 if TYPE_CHECKING:
     from .program import ProgramBinExport
@@ -156,6 +156,4 @@ class ExpressionBinExport:
             self._value = self.pb_expr.symbol
 
         else:
-            logging.error(
-                f"Malformed protobuf message. Invalid expression type {self.pb_expr.type}"
-            )
+            logger.error(f"Malformed protobuf message. Invalid expression type {self.pb_expr.type}")

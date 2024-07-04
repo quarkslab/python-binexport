@@ -1,11 +1,10 @@
 from __future__ import annotations
-import logging
 import weakref
 import networkx
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-from binexport.utils import get_basic_block_addr
+from binexport.utils import get_basic_block_addr, logger
 from binexport.basic_block import BasicBlockBinExport
 from binexport.types import FunctionType
 
@@ -56,7 +55,7 @@ class FunctionBinExport:
 
         if is_import:
             if self.addr is None:
-                logging.error("Missing function address for imported function")
+                logger.error("Missing function address for imported function")
             return
 
         assert pb_fun is not None, "pb_fun must be provided"
@@ -196,7 +195,7 @@ class FunctionBinExport:
             )
 
             if basic_block.addr in bblocks:
-                logging.error(
+                logger.error(
                     f"0x{self.addr:x} basic block address (0x{basic_block.addr:x}) already in(idx:{bb_idx})"
                 )
 
