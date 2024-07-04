@@ -12,6 +12,7 @@ import click
 from multiprocessing import Pool, Queue, Manager
 import queue
 from binexport import ProgramBinExport
+from binexport.utils import logger
 
 BINARY_FORMAT = {
     "application/x-dosexec",
@@ -111,7 +112,7 @@ def main(ida_path: str, input_file: str, threads: int, verbose: bool) -> None:
         ingress.put(file)
         total += 1
 
-    logging.info(f"Start exporting {total} binaries")
+    logger.info(f"Start exporting {total} binaries")
 
     i = 0
     while True:
@@ -122,7 +123,7 @@ def main(ida_path: str, input_file: str, threads: int, verbose: bool) -> None:
             pp_res = Bcolors.OKGREEN + "OK" + Bcolors.ENDC
         else:
             pp_res = Bcolors.FAIL + "KO" + Bcolors.ENDC
-        logging.info(f"[{i}/{total}] {str(path) + '.BinExport'} [{pp_res}]")
+        logger.info(f"[{i}/{total}] {str(path) + '.BinExport'} [{pp_res}]")
         if i == total:
             break
 
