@@ -73,4 +73,4 @@ def instruction_index_range(rng: Binexport2.BasicBlock.IndexRange) -> Iterator[i
 
 
 # Main logger object
-logger = logging.getLogger("pyhton-binexport")
+logger = logging.getLogger("python-binexport")
