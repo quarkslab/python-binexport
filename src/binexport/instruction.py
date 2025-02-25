@@ -36,6 +36,7 @@ class InstructionBinExport:
         self._idx = i_idx
         self.data_refs: set[Addr] = self.program.data_refs[self._idx]  #: Data references address
         self.bytes = self.pb_instr.raw_bytes  #: bytes of the instruction (opcodes)
+        self.disasm = f"{self.mnemonic} {', '.join(str(o) for o in self.operands)}"
 
     def __hash__(self) -> int:
         return hash(self.addr)
