@@ -52,3 +52,15 @@ class ExpressionType(enum.Enum):
     REGISTER = enum.auto()         # doc: register expression
     SIZE = enum.auto()             # doc: size expression (byte, dword ..)
     # fmt: on
+
+
+@enum_tools.documentation.document_enum
+class DisassemblerBackend(enum.Enum):
+    """
+    List of dissasemblers supported.
+    """
+
+    # fmt: off
+    IDA = enum.auto()        # doc: IDA backend
+    GHIDRA = enum.auto()     # doc: Ghidra backend 
+    # fmt: on
