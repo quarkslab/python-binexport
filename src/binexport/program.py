@@ -1,13 +1,17 @@
 from __future__ import annotations
+import os
 import pathlib
 import networkx
 import weakref
+from textwrap import dedent
 from collections import defaultdict
+from tempfile import TemporaryDirectory
+from subprocess import run, PIPE, DEVNULL
 from typing import TYPE_CHECKING
 
 from binexport.binexport2_pb2 import BinExport2
 from binexport.function import FunctionBinExport
-from binexport.types import FunctionType
+from binexport.types import FunctionType, DisassemblerBackend
 from binexport.utils import logger
 
 if TYPE_CHECKING:
@@ -116,6 +120,7 @@ class ProgramBinExport(dict):
         output_file: str | pathlib.Path = "",
         open_export: bool = True,
         override: bool = False,
+        backend: DisassemblerBackend = DisassemblerBackend.IDA,
     ) -> ProgramBinExport | bool:
         """
         Generate the .BinExport file for the given program and return an instance
@@ -127,11 +132,10 @@ class ProgramBinExport(dict):
         :param output_file: BinExport output file
         :param open_export: whether or not to open the binexport after export
         :param override: Override the .BinExport if already existing. (default false)
+        :param backend: The backend to use. (Either 'IDA' or 'Ghidra')
         :return: an instance of ProgramBinExport if open_export is true, else boolean
                  on whether it succeeded
         """
-
-        from idascript import IDA
 
         exec_file = pathlib.Path(exec_file)
         binexport_file = (
@@ -146,6 +150,34 @@ class ProgramBinExport(dict):
                 return ProgramBinExport(binexport_file)
             else:
                 return True
+
+        if backend == DisassemblerBackend.IDA:
+            return ProgramBinExport._from_ida(exec_file, binexport_file, open_export)
+        elif backend == DisassemblerBackend.GHIDRA:
+            return ProgramBinExport._from_ghidra(exec_file, binexport_file, open_export)
+        else:
+            logger.error(f"Invalid backend '{backend}'")
+            return False
+
+    @staticmethod
+    def _from_ida(
+        exec_file: pathlib.Path,
+        binexport_file: pathlib.Path,
+        open_export: bool = True,
+    ) -> ProgramBinExport | bool:
+        """
+        Generate the .BinExport file for the given program and return an instance
+        of ProgramBinExport.
+
+        .. warning:: That function requires the module ``idascript``
+
+        :param exec_file: executable file path
+        :param binexport_file: BinExport output file
+        :param open_export: whether or not to open the binexport after export
+        :return: an instance of ProgramBinExport if open_export is true, else boolean
+                 on whether it succeeded
+        """
+        from idascript import IDA
 
         ida = IDA(
             exec_file,
@@ -164,6 +196,95 @@ class ProgramBinExport(dict):
                 f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]"
             )
             return False
+
+        if binexport_file.exists():
+            return ProgramBinExport(binexport_file) if open_export else True
+        else:
+            logger.error(f"{exec_file} can't find binexport generated")
+            return False
+
+    @staticmethod
+    def _from_ghidra(
+        exec_file: pathlib.Path,
+        binexport_file: pathlib.Path,
+        open_export: bool = True,
+    ) -> ProgramBinExport | bool:
+        """
+        Generate the .BinExport file for the given program and return an instance
+        of ProgramBinExport.
+
+        .. warning:: That function requires Ghidra to be installed
+
+        :param exec_file: executable file path
+        :param binexport_file: BinExport output file
+        :param open_export: whether or not to open the binexport after export
+        :return: an instance of ProgramBinExport if open_export is true, else boolean
+                 on whether it succeeded
+        """
+
+        # Check if the GHIDRA_PATH environment variable is set
+        ghidra_dir = os.environ.get("GHIDRA_PATH")
+        if not ghidra_dir:
+            logger.error(
+                "The 'GHIDRA_PATH' environment variable is not set. Please define it to proceed."
+            )
+            return False
+
+        # Check if the GHIDRA_PATH dir exists
+        ghidra_dir = pathlib.Path(ghidra_dir)
+        if not ghidra_dir.exists() or not ghidra_dir.is_dir():
+            logger.error(f"The path specified in 'GHIDRA_PATH' does not exist: {ghidra_dir}")
+            return False
+
+        # Small script to do the binexport
+        ghidra_script = dedent(
+            f"""
+            from java.io import File
+            try:
+                from com.google.security.binexport import BinExportExporter
+            except ImportError:
+                print("BinExport plugin is not installed")
+                exit()
+            
+            exporter = BinExportExporter() #Binary BinExport (v2) for BinDiff
+            exporter.export(File("{binexport_file.absolute()}"), currentProgram, currentProgram.getMemory(), monitor)
+            """
+        )
+
+        # Do everything in a TemporaryDirectory to avoid polluting the user filesystem
+        with TemporaryDirectory() as tmpdirname:
+            tmpdir = pathlib.Path(tmpdirname)
+            ghidra_script_path = tmpdir / "BinExportGhidraScript.py"
+            with open(ghidra_script_path, "w") as fp:
+                fp.write(ghidra_script)
+
+            proc = run(
+                [
+                    str(ghidra_dir / "support" / "analyzeHeadless"),
+                    tmpdirname,
+                    "tmpproj",
+                    "-scriptPath",
+                    tmpdirname,
+                    "-postScript",
+                    str(ghidra_script_path),
+                    "-import",
+                    str(exec_file.absolute()),
+                ],
+                stdout=PIPE,
+                stderr=DEVNULL,
+            )
+
+            if proc.returncode != 0:
+                logger.warning(
+                    f"{exec_file.name} failed to export [ret:{e.returncode}, binexport:{binexport_file.exists()}]"
+                )
+                return False
+
+            elif b"BinExport plugin is not installed" in proc.stdout:
+                # Using exit(code) inside ghidra script do not propagate so we need to search through
+                # the script output to detect an error
+                logger.warning("BinExport plugin not found, please install it!")
+                return False
 
         if binexport_file.exists():
             return ProgramBinExport(binexport_file) if open_export else True

@@ -2,17 +2,18 @@
 # coding: utf-8
 
 import logging
-import os.path
+import traceback
 from pathlib import Path
 from typing import Generator
 
 import magic
 import click
+import queue
 
 from multiprocessing import Pool, Queue, Manager
-import queue
 from binexport import ProgramBinExport
 from binexport.utils import logger
+from binexport.types import DisassemblerBackend
 
 BINARY_FORMAT = {
     "application/x-dosexec",
@@ -25,17 +26,20 @@ BINARY_FORMAT = {
 EXTENSIONS_WHITELIST = {"application/octet-stream": [".dex"]}
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"], max_content_width=300)
+# Default backend to use
+BACKEND = DisassemblerBackend.IDA
+
 
 class Bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 def recursive_file_iter(p: Path) -> Generator[Path, None, None]:
@@ -56,8 +60,14 @@ def export_job(ingress, egress) -> bool:
     while True:
         try:
             file = ingress.get(timeout=0.5)
-            res = ProgramBinExport.from_binary_file(file.as_posix(), open_export=False)
+            res = ProgramBinExport.from_binary_file(
+                file.as_posix(), backend=BACKEND, open_export=False
+            )
             egress.put((file, res))
+        except Exception as e:
+            # Print out unhandled exception
+            logger.error(traceback.format_exception(e).decode())
+            egress.put((file, False))
         except queue.Empty:
             pass
         except KeyboardInterrupt:
@@ -72,10 +82,17 @@ def export_job(ingress, egress) -> bool:
     default=None,
     help="IDA Pro installation directory",
 )
+@click.option(
+    "-g",
+    "--ghidra-path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Ghidra installation directory",
+)
 @click.option("-t", "--threads", type=int, default=1, help="Thread number to use")
 @click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
 @click.argument("input_file", type=click.Path(exists=True), metavar="<binary file|directory>")
-def main(ida_path: str, input_file: str, threads: int, verbose: bool) -> None:
+def main(ida_path: str, ghidra_path: str, input_file: str, threads: int, verbose: bool) -> None:
     """
     binexporter is a very simple utility to generate a .BinExport file
     for a given binary or a directory. It all open the binary file and export the file
@@ -87,13 +104,17 @@ def main(ida_path: str, input_file: str, threads: int, verbose: bool) -> None:
     :param verbose: To activate or not the verbosity
     :return: None
     """
+    global BACKEND
 
-    logging.basicConfig(
-        format="%(message)s", level=logging.DEBUG if verbose else logging.INFO
-    )
+    logging.basicConfig(format="%(message)s", level=logging.DEBUG if verbose else logging.INFO)
 
+    # In case both Ghidra and IDA path are defined, favor IDA as it
+    # produces less corrupted results in general
     if ida_path:
         os.environ["IDA_PATH"] = Path(ida_path).absolute().as_posix()
+    elif ghidra_path:
+        os.environ["GHIDRA_PATH"] = Path(ghidra_path).absolute().as_posix()
+        BACKEND = DisassemblerBackend.GHIDRA
 
     root_path = Path(input_file)
 
@@ -128,6 +149,7 @@ def main(ida_path: str, input_file: str, threads: int, verbose: bool) -> None:
             break
 
     pool.terminate()
+
 
 if __name__ == "__main__":
     main()
