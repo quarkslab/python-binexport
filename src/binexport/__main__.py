@@ -64,10 +64,8 @@ def export_job(ingress, egress) -> bool:
                 file.as_posix(), backend=BACKEND, open_export=False
             )
             egress.put((file, res))
-        except Exception as e:
-            # Print out unhandled exception
-            logger.error(traceback.format_exception(e).decode())
-            egress.put((file, False))
+        except Exception as err:
+            egress.put(err)
         except queue.Empty:
             pass
         except KeyboardInterrupt:
@@ -138,6 +136,8 @@ def main(ida_path: str, ghidra_path: str, input_file: str, threads: int, verbose
     i = 0
     while True:
         item = egress.get()
+        if isinstance(item, Exception):
+            raise item
         i += 1
         path, res = item
         if res:
