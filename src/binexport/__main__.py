@@ -63,9 +63,9 @@ def export_job(ingress, egress, backend) -> bool:
             )
             egress.put((file, res))
         except Exception as e:
-            # Print out unhandled exception
+            # Might not be printed as triggered withing a fork
             logger.error(traceback.format_exception(e).decode())
-            egress.put((file, False))
+            egress.put((file, e))
         except queue.Empty:
             pass
         except KeyboardInterrupt:
@@ -95,8 +95,15 @@ def export_job(ingress, egress, backend) -> bool:
 )
 @click.option("-t", "--threads", type=int, default=1, help="Thread number to use")
 @click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
+@click.option("--stop-on-error", is_flag=True, default=False, help="Stop on error")
 @click.argument("input_file", type=click.Path(exists=True), metavar="<binary file|directory>")
-def main(ida_path: str, ghidra_path: str, binja: bool, input_file: str, threads: int, verbose: bool) -> None:
+def main(ida_path: str,
+         ghidra_path: str,
+         binja: bool,
+         input_file: str,
+         threads: int,
+         verbose: bool,
+         stop_on_error: bool) -> None:
     """
     binexporter is a very simple utility to generate a .BinExport file
     for a given binary or a directory. It all open the binary file and export the file
@@ -106,6 +113,7 @@ def main(ida_path: str, ghidra_path: str, binja: bool, input_file: str, threads:
     :param input_file: Path of the binary to export
     :param threads: number of threads to use
     :param verbose: To activate or not the verbosity
+    :param stop_on_error: Stop if any of the worker raises an exception
     :return: None
     """
 
@@ -145,6 +153,18 @@ def main(ida_path: str, ghidra_path: str, binja: bool, input_file: str, threads:
         item = egress.get()
         i += 1
         path, res = item
+
+        # Check if the result is an exception
+        if isinstance(res, Exception):
+            logger.error(f"Error while processing {path}: {res}")
+            if stop_on_error:
+                logger.error(traceback.format_exception(res).decode())
+                pool.terminate()
+                break
+            else:
+                res = False # set to false and just print KO
+        
+        # Print the result
         if res:
             pp_res = Bcolors.OKGREEN + "OK" + Bcolors.ENDC
         else:
