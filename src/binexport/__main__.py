@@ -9,6 +9,7 @@ from typing import Generator
 import magic
 import click
 import queue
+import os
 
 from multiprocessing import Pool, Queue, Manager
 from binexport import ProgramBinExport
@@ -26,9 +27,6 @@ BINARY_FORMAT = {
 EXTENSIONS_WHITELIST = {"application/octet-stream": [".dex"]}
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"], max_content_width=300)
-# Default backend to use
-BACKEND = DisassemblerBackend.IDA
-
 
 class Bcolors:
     HEADER = "\033[95m"
@@ -56,12 +54,12 @@ def recursive_file_iter(p: Path) -> Generator[Path, None, None]:
             yield from recursive_file_iter(f)
 
 
-def export_job(ingress, egress) -> bool:
+def export_job(ingress, egress, backend) -> bool:
     while True:
         try:
             file = ingress.get(timeout=0.5)
             res = ProgramBinExport.from_binary_file(
-                file.as_posix(), backend=BACKEND, open_export=False
+                file.as_posix(), backend=backend, open_export=False
             )
             egress.put((file, res))
         except Exception as e:
@@ -89,10 +87,16 @@ def export_job(ingress, egress) -> bool:
     default=None,
     help="Ghidra installation directory",
 )
+@click.option(
+    "-b",
+    "--binja",
+    is_flag=True,
+    help="Use Binary Ninja backend",
+)
 @click.option("-t", "--threads", type=int, default=1, help="Thread number to use")
 @click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
 @click.argument("input_file", type=click.Path(exists=True), metavar="<binary file|directory>")
-def main(ida_path: str, ghidra_path: str, input_file: str, threads: int, verbose: bool) -> None:
+def main(ida_path: str, ghidra_path: str, binja: bool, input_file: str, threads: int, verbose: bool) -> None:
     """
     binexporter is a very simple utility to generate a .BinExport file
     for a given binary or a directory. It all open the binary file and export the file
@@ -104,17 +108,18 @@ def main(ida_path: str, ghidra_path: str, input_file: str, threads: int, verbose
     :param verbose: To activate or not the verbosity
     :return: None
     """
-    global BACKEND
 
     logging.basicConfig(format="%(message)s", level=logging.DEBUG if verbose else logging.INFO)
 
-    # In case both Ghidra and IDA path are defined, favor IDA as it
-    # produces less corrupted results in general
-    if ida_path:
-        os.environ["IDA_PATH"] = Path(ida_path).absolute().as_posix()
+    if binja:
+        backend = DisassemblerBackend.BINARY_NINJA
     elif ghidra_path:
         os.environ["GHIDRA_PATH"] = Path(ghidra_path).absolute().as_posix()
-        BACKEND = DisassemblerBackend.GHIDRA
+        backend = DisassemblerBackend.GHIDRA
+    else:
+        if ida_path:
+            os.environ["IDA_PATH"] = Path(ida_path).absolute().as_posix()
+        backend = DisassemblerBackend.IDA
 
     root_path = Path(input_file)
 
@@ -125,7 +130,7 @@ def main(ida_path: str, ghidra_path: str, input_file: str, threads: int, verbose
 
     # Launch all workers
     for _ in range(threads):
-        pool.apply_async(export_job, (ingress, egress))
+        pool.apply_async(export_job, (ingress, egress, backend))
 
     # Pre-fill ingress queue
     total = 0
@@ -133,7 +138,7 @@ def main(ida_path: str, ghidra_path: str, input_file: str, threads: int, verbose
         ingress.put(file)
         total += 1
 
-    logger.info(f"Start exporting {total} binaries")
+    logger.info(f"Start exporting {total} binaries with {backend} backend")
 
     i = 0
     while True:

@@ -61,6 +61,7 @@ class DisassemblerBackend(enum.Enum):
     """
 
     # fmt: off
-    IDA = enum.auto()        # doc: IDA backend
-    GHIDRA = enum.auto()     # doc: Ghidra backend 
+    IDA = enum.auto()           # doc: IDA backend
+    GHIDRA = enum.auto()        # doc: Ghidra backend
+    BINARY_NINJA = enum.auto()  # doc: BinaryNinja backend 
     # fmt: on

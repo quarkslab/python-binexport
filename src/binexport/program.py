@@ -155,6 +155,8 @@ class ProgramBinExport(dict):
             return ProgramBinExport._from_ida(exec_file, binexport_file, open_export)
         elif backend == DisassemblerBackend.GHIDRA:
             return ProgramBinExport._from_ghidra(exec_file, binexport_file, open_export)
+        elif backend == DisassemblerBackend.BINARY_NINJA:
+            return ProgramBinExport._from_binary_ninja(exec_file, binexport_file, open_export)
         else:
             logger.error(f"Invalid backend '{backend}'")
             return False
@@ -196,6 +198,46 @@ class ProgramBinExport(dict):
                 f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]"
             )
             return False
+
+        if binexport_file.exists():
+            return ProgramBinExport(binexport_file) if open_export else True
+        else:
+            logger.error(f"{exec_file} can't find binexport generated")
+            return False
+        
+    @staticmethod
+    def _from_binary_ninja(
+        exec_file: pathlib.Path,
+        binexport_file: pathlib.Path,
+        open_export: bool = True,
+    ) -> ProgramBinExport | bool:
+        """
+        Generate the .BinExport file for the given program and return an instance
+        of ProgramBinExport.
+
+        .. warning:: That function requires the module ``binaryninja``
+
+        :param exec_file: executable file path
+        :param binexport_file: BinExport output file
+        :param open_export: whether or not to open the binexport after export
+        :return: an instance of ProgramBinExport if open_export is true, else boolean
+                 on whether it succeeded
+        """
+        import binaryninja
+
+        try:
+            bv = binaryninja.load(exec_file)
+        except Exception as err:
+            logger.warning(f'Failed to analyze {exec_file}: {err}')
+            return False
+
+        cmd = next(filter(lambda cmd: cmd.name == "BinExport", binaryninja.PluginCommand), None)
+        if not cmd:
+            logger.warning(f'BinExport not installed')
+            return False
+
+        ctx = binaryninja.PluginCommandContext(bv)
+        cmd.execute(ctx)
 
         if binexport_file.exists():
             return ProgramBinExport(binexport_file) if open_export else True
