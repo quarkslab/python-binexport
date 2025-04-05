@@ -54,7 +54,7 @@ def recursive_file_iter(p: Path) -> Generator[Path, None, None]:
             yield from recursive_file_iter(f)
 
 
-def export_job(ingress, egress, backend) -> bool:
+def export_job(ingress, egress, backend: DisassemblerBackend) -> bool:
     while True:
         try:
             file = ingress.get(timeout=0.5)
@@ -72,64 +72,101 @@ def export_job(ingress, egress, backend) -> bool:
             break
 
 
+def __check_path() -> bool:
+    global IDA_BINARY
+    if "PATH" in os.environ:
+        for p in os.environ["PATH"].split(":"):
+            for bin_name in __get_names():
+                if (Path(p) / bin_name).exists():
+                    IDA_BINARY = (Path(p) / bin_name).resolve()
+                    return True
+    return False
+
+def check_disassembler_availability(disass: DisassemblerBackend, disass_path: str) -> bool:
+    """
+    Check if the disassembler is available in the system.
+    :param disass: Disassembler backend to check
+    :param disass_path: Path of the disassembler (if not in PATH)
+    :return: True if the disassembler is available, False otherwise
+    """
+    if disass == DisassemblerBackend.IDA:
+        if disass_path:
+            ida_path = Path(disass_path)
+            os.environ["IDA_PATH_ENV"] = str(ida_path) if ida_path.is_dir() else str(ida_path.parent)
+        try:
+            from idascript import __check_path
+            return __check_path()
+        except ImportError:
+            logger.error("Cannot import idascript python module")
+            return False
+    
+    elif disass == DisassemblerBackend.GHIDRA:
+        if disass_path:
+            ghidra_path = Path(disass_path)
+            os.environ["GHIDRA_PATH"] = disass_path
+            return ghidra_path.exists()
+        else:
+            logger.error(f"Ghidra path {ghidra_path} does not exist")
+            return False
+    
+    elif disass == DisassemblerBackend.BINARY_NINJA:
+        try:
+            import binaryninja
+        except ImportError:
+            logger.error("Cannot import binaryninja python module")
+            return False
+    else:
+        logger.error(f"Unknown disassembler {disass}")
+        return False
+    return True
+
+
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option(
-    "-i",
-    "--ida-path",
-    type=click.Path(exists=True),
-    default=None,
-    help="IDA Pro installation directory",
+    "-d",
+    "--disassembler",
+    type=click.Choice(["ida", "ghidra", "binja"], case_sensitive=False),
+    default="ida",
+    help="Disassembler to use",
 )
 @click.option(
-    "-g",
-    "--ghidra-path",
+    "--disass-path",
     type=click.Path(exists=True),
     default=None,
     help="Ghidra installation directory",
-)
-@click.option(
-    "-b",
-    "--binja",
-    is_flag=True,
-    help="Use Binary Ninja backend",
-    help="Path of the disassembler (if not in PATH)" \
-    "Can be provided with IDA_PATH, GHIDRA_PATH env variables",
 )
 @click.option("-t", "--threads", type=int, default=1, help="Thread number to use")
 @click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
 @click.option("--stop-on-error", is_flag=True, default=False, help="Stop on error")
 @click.argument("input_file", type=click.Path(exists=True), metavar="<binary file|directory>")
-def main(ida_path: str,
-         ghidra_path: str,
-         binja: bool,
+def main(disassembler: str,
+         disass_path: str,
          input_file: str,
          threads: int,
          verbose: bool,
          stop_on_error: bool) -> None:
     """
     binexporter is a very simple utility to generate a .BinExport file
-    for a given binary or a directory. It all open the binary file and export the file
-    seamlessly.
+    for a given binary or a directory. It opens all binary files and export
+    the them seamlessly.
 
-    :param ida_path: Path to the IDA Pro installation directory
+    :param disassembler: Disassembler engine to use
+    :param disass_path: Path of the disassembler (if not in PATH)
     :param input_file: Path of the binary to export
     :param threads: number of threads to use
     :param verbose: To activate or not the verbosity
     :param stop_on_error: Stop if any of the worker raises an exception
-    :return: None
     """
 
     logging.basicConfig(format="%(message)s", level=logging.DEBUG if verbose else logging.INFO)
 
-    if binja:
-        backend = DisassemblerBackend.BINARY_NINJA
-    elif ghidra_path:
-        os.environ["GHIDRA_PATH"] = Path(ghidra_path).absolute().as_posix()
-        backend = DisassemblerBackend.GHIDRA
-    else:
-        if ida_path:
-            os.environ["IDA_PATH"] = Path(ida_path).absolute().as_posix()
-        backend = DisassemblerBackend.IDA
+    # Get enum from string
+    engine = DisassemblerBackend[disassembler.upper()]
+
+    # Check disassembler availability
+    if not check_disassembler_availability(engine, disass_path):
+        logger.error(f"Error trying to find disassembler {engine.name.lower()}")
+        return
 
     root_path = Path(input_file)
 
@@ -140,7 +177,7 @@ def main(ida_path: str,
 
     # Launch all workers
     for _ in range(threads):
-        pool.apply_async(export_job, (ingress, egress, backend))
+        pool.apply_async(export_job, (ingress, egress, engine))
 
     # Pre-fill ingress queue
     total = 0
@@ -148,7 +185,7 @@ def main(ida_path: str,
         ingress.put(file)
         total += 1
 
-    logger.info(f"Start exporting {total} binaries with {backend} backend")
+    logger.info(f"Start exporting {total} binaries with {engine.name} backend")
 
     i = 0
     while True:
