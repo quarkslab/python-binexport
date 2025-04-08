@@ -34,6 +34,9 @@ Documentation = "https://quarkslab.github.io/diffing-portal/exporter/binexport.h
 [project.scripts]
 binexporter = 'binexport.__main__:main'
 
+[project.optional-dependencies]
+dev = ["tox"]
+
 [tool.black]
 line-length = 100
 target-version = ['py310']
