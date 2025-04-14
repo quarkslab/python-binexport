@@ -125,7 +125,7 @@ def check_disassembler_availability(disass: DisassemblerBackend, disass_path: st
 @click.option(
     "-d",
     "--disassembler",
-    type=click.Choice(["ida", "ghidra", "binja"], case_sensitive=False),
+    type=click.Choice([x.name.lower() for x in DisassemblerBackend], case_sensitive=False),
     default="ida",
     help="Disassembler to use",
 )
