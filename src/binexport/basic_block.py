@@ -89,6 +89,36 @@ class BasicBlockBinExport:
         return self._function()
 
     @cached_property
+    def contiguous_ranges(self) -> list[tuple[Addr, bytes]]:
+        """
+        The contiguous ranges of instructions contained in this basic block. That identifies
+        the *real* basic blocks, as BinExport's basic blocks do not necessarily represent a
+        contiguous block of instructions.
+
+        :return: List of tuples (begin address, bytes), each of them representing a contiguous
+                 block of instructions.
+        """
+
+        ranges = []
+
+        # Ranges are in fact the true basic blocks but BinExport
+        # doesn't have the same basic block semantic and merge multiple basic blocks into one.
+        # For example: BB_1 -- unconditional_jmp --> BB_2
+        # might be merged into a single basic block so the edge gets lost.
+        for rng in pb_bb.instruction_index:
+            rng_bytes = b""
+            rng_addr = None
+            for idx in instruction_index_range(rng):
+                rng_bytes += self.program.proto.instruction[idx].raw_bytes
+
+                # The first instruction determines the basic block address
+                if rng_addr is None:
+                    rng_addr = get_instruction_address(self.program.proto, idx)
+            ranges.append((rng_addr, rng_bytes))
+
+        return ranges
+
+    @cached_property
     def instructions(self) -> dict[Addr, InstructionBinExport]:
         """
         Returns a dict which is used to reference all the instructions in this basic
