@@ -105,7 +105,7 @@ class BasicBlockBinExport:
         # doesn't have the same basic block semantic and merge multiple basic blocks into one.
         # For example: BB_1 -- unconditional_jmp --> BB_2
         # might be merged into a single basic block so the edge gets lost.
-        for rng in pb_bb.instruction_index:
+        for rng in self.pb_bb.instruction_index:
             rng_bytes = b""
             rng_addr = None
             for idx in instruction_index_range(rng):
