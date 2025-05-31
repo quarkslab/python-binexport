@@ -262,7 +262,7 @@ class ProgramBinExport(dict):
         ida.start()
         retcode = ida.wait()
 
-        if retcode == IDA.EXIT_CODE_TIMEOUT:
+        if retcode == IDA.TIMEOUT_RETURNCODE:
             logger.warning(f"{exec_file.name} timed out after {timeout} seconds")
             return False
         
