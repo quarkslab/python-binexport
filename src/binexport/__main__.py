@@ -92,6 +92,8 @@ def export_job(ingress, egress, backend) -> bool:
     "--binja",
     is_flag=True,
     help="Use Binary Ninja backend",
+    help="Path of the disassembler (if not in PATH)" \
+    "Can be provided with IDA_PATH, GHIDRA_PATH env variables",
 )
 @click.option("-t", "--threads", type=int, default=1, help="Thread number to use")
 @click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
