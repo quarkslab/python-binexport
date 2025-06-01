@@ -284,7 +284,11 @@ class ProgramBinExport(dict):
         :param binexport_file: BinExport output file
         :return: whether it succeeded or not
         """
-        import binaryninja
+        try:
+            import binaryninja
+        except ModuleNotFoundError as e:
+            logging.error("Cannot find module python `binaryninja`. Try running BINARY_NINJA_PATH/scripts/install_api.py")
+            return False
 
         try:
             bv = binaryninja.load(exec_file)
