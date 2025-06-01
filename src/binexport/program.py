@@ -228,8 +228,7 @@ class ProgramBinExport(dict):
             case True, False:
                 raise FileNotFoundError(f"Disassembler succeeded but BinExport file missing: {binexport_file}")
             case False, False:
-                dname = DisassemblerBackend.name
-                raise FileNotFoundError(f"Disassembler {dname} failed, BinExport file missing: {binexport_file}")
+                raise FileNotFoundError(f"Disassembler {backend.name} failed, BinExport file missing: {binexport_file}")
 
     @staticmethod
     def _from_ida(
