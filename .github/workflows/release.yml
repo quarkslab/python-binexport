@@ -42,7 +42,7 @@ jobs:
           password: ${{ secrets.PYPI_DEPLOY_TOKEN }}
 
       - name: Upload Python packages for release notes
-        uses: softprops/action-gh-release@v2.3.0
+        uses: softprops/action-gh-release@v2.3.2
         with:
           files: |
             dist/*
