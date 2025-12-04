@@ -145,7 +145,7 @@ class ProgramBinExport(dict):
             return export_path.exists()
         else:
             ProgramBinExport.from_binary(exec_file=exec_file, output_file=output_file,
-                                     open_export=open_export, override=override, backend=backend)
+                                         override=override, backend=backend)
 
     @staticmethod
     def from_binary(
