@@ -125,29 +125,6 @@ class ProgramBinExport(dict):
         return ProgramBinExport(export_file)
 
     @staticmethod
-    def from_binary_file(
-        exec_file: pathlib.Path | str,
-        output_file: str | pathlib.Path = "",
-        open_export: bool = True,
-        override: bool = False,
-        backend: DisassemblerBackend = DisassemblerBackend.IDA,
-    ) -> ProgramBinExport | bool:
-        """
-        DEPRECATED: Use `ProgramBinExport.from_binary` instead."""
-        if not open_export:
-            export_path = ProgramBinExport.generate(
-                exec_file=exec_file,
-                output_file=output_file,
-                override=override,
-                backend=backend,
-                timeout=600,
-            )
-            return export_path.exists()
-        else:
-            ProgramBinExport.from_binary(exec_file=exec_file, output_file=output_file,
-                                         override=override, backend=backend)
-
-    @staticmethod
     def from_binary(
         exec_file: pathlib.Path | str,
         output_file: str | pathlib.Path = "",
@@ -163,11 +140,9 @@ class ProgramBinExport(dict):
 
         :param exec_file: executable file path
         :param output_file: BinExport output file
-        :param open_export: whether or not to open the binexport after export
         :param override: Override the .BinExport if already existing. (default false)
         :param backend: The backend to use. (Either 'IDA' or 'Ghidra')
-        :return: an instance of ProgramBinExport if open_export is true, else boolean
-                 on whether it succeeded
+        :return: an instance of ProgramBinExport
         """
         binexport_file = ProgramBinExport.generate(
             exec_file=exec_file,

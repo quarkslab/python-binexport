@@ -12,6 +12,8 @@ import queue
 import os
 
 from multiprocessing import Pool, Queue, Manager
+
+from idascript import IDA_PATH_ENV, get_ida_path
 from binexport import ProgramBinExport
 from binexport.utils import logger
 from binexport.types import DisassemblerBackend
@@ -54,37 +56,27 @@ def recursive_file_iter(p: Path) -> Generator[Path, None, None]:
             yield from recursive_file_iter(f)
 
 
-def export_job(ingress, egress, backend: DisassemblerBackend) -> bool:
+def export_job(ingress, egress, backend: DisassemblerBackend) -> None:
     while True:
         try:
             file = ingress.get(timeout=0.5)
-            res = ProgramBinExport.from_binary_file(
-                file.as_posix(), backend=backend, open_export=False
-            )
+            res = ProgramBinExport.generate(file.as_posix(), backend=backend)
             egress.put((file, res))
-        except Exception as e:
-            # Might not be printed as triggered withing a fork
-            logger.error(traceback.format_exception(e).decode())
-            egress.put((file, e))
         except queue.Empty:
             pass
         except KeyboardInterrupt:
             break
+        except Exception as e:
+            # Might not be printed as triggered withing a fork
+            logger.error(traceback.format_exception(e))
+            egress.put((file, e))
 
-
-def __check_path() -> bool:
-    global IDA_BINARY
-    if "PATH" in os.environ:
-        for p in os.environ["PATH"].split(":"):
-            for bin_name in __get_names():
-                if (Path(p) / bin_name).exists():
-                    IDA_BINARY = (Path(p) / bin_name).resolve()
-                    return True
-    return False
 
 def check_disassembler_availability(disass: DisassemblerBackend, disass_path: str) -> bool:
     """
     Check if the disassembler is available in the system.
+    It also set the necessary environment variables.
+
     :param disass: Disassembler backend to check
     :param disass_path: Path of the disassembler (if not in PATH)
     :return: True if the disassembler is available, False otherwise
@@ -92,10 +84,9 @@ def check_disassembler_availability(disass: DisassemblerBackend, disass_path: st
     if disass == DisassemblerBackend.IDA:
         if disass_path:
             ida_path = Path(disass_path)
-            os.environ["IDA_PATH_ENV"] = str(ida_path) if ida_path.is_dir() else str(ida_path.parent)
+            os.environ[IDA_PATH_ENV] = str(ida_path)
         try:
-            from idascript import __check_path
-            return __check_path()
+            return bool(get_ida_path())
         except ImportError:
             logger.error("Cannot import idascript python module")
             return False
@@ -106,12 +97,12 @@ def check_disassembler_availability(disass: DisassemblerBackend, disass_path: st
             os.environ["GHIDRA_PATH"] = disass_path
             return ghidra_path.exists()
         else:
-            logger.error(f"Ghidra path {ghidra_path} does not exist")
+            logger.error(f"Ghidra path {disass_path} does not exist")
             return False
     
     elif disass == DisassemblerBackend.BINARY_NINJA:
         try:
-            import binaryninja
+            import binaryninja # type: ignore
         except ImportError:
             logger.error("Cannot import binaryninja python module")
             return False
@@ -133,8 +124,8 @@ def check_disassembler_availability(disass: DisassemblerBackend, disass_path: st
     "--disass-path",
     type=click.Path(exists=True),
     default="",
-    help="Path of the disassembler (if not in PATH)" \
-    "Can be provided with IDA_PATH, GHIDRA_PATH env variables",
+    help="Path of the disassembler (dir or binary for IDA, dir for Ghidra)" \
+    "(if not provided search $PATH or environment variable IDA_PATH, GHIDRA_PATH)",
 )
 @click.option("-t", "--threads", type=int, default=1, help="Thread number to use")
 @click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
@@ -150,13 +141,6 @@ def main(disassembler: str,
     binexporter is a very simple utility to generate a .BinExport file
     for a given binary or a directory. It opens all binary files and export
     the them seamlessly.
-
-    :param disassembler: Disassembler engine to use
-    :param disass_path: Path of the disassembler (if not in PATH)
-    :param input_file: Path of the binary to export
-    :param threads: number of threads to use
-    :param verbose: To activate or not the verbosity
-    :param stop_on_error: Stop if any of the worker raises an exception
     """
 
     logging.basicConfig(format="%(message)s", level=logging.DEBUG if verbose else logging.INFO)
@@ -198,7 +182,7 @@ def main(disassembler: str,
         if isinstance(res, Exception):
             logger.error(f"Error while processing {path}: {res}")
             if stop_on_error:
-                logger.error(traceback.format_exception(res).decode())
+                logger.error(traceback.format_exception(res))
                 pool.terminate()
                 break
             else:
