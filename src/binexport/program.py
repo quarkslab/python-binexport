@@ -115,6 +115,16 @@ class ProgramBinExport(dict):
         return f"<{type(self).__name__}:{self.name}>"
 
     @staticmethod
+    def open(export_file: pathlib.Path | str) -> ProgramBinExport:
+        """
+        Open a BinExport file and return an instance of ProgramBinExport.
+
+        :param export_file: BinExport file path
+        :return: an instance of ProgramBinExport
+        """
+        return ProgramBinExport(export_file)
+
+    @staticmethod
     def from_binary_file(
         exec_file: pathlib.Path | str,
         output_file: str | pathlib.Path = "",
@@ -122,6 +132,29 @@ class ProgramBinExport(dict):
         override: bool = False,
         backend: DisassemblerBackend = DisassemblerBackend.IDA,
     ) -> ProgramBinExport | bool:
+        """
+        DEPRECATED: Use `ProgramBinExport.from_binary` instead."""
+        if not open_export:
+            export_path = ProgramBinExport.generate(
+                exec_file=exec_file,
+                output_file=output_file,
+                override=override,
+                backend=backend,
+                timeout=600,
+            )
+            return export_path.exists()
+        else:
+            ProgramBinExport.from_binary(exec_file=exec_file, output_file=output_file,
+                                         override=override, backend=backend)
+
+    @staticmethod
+    def from_binary(
+        exec_file: pathlib.Path | str,
+        output_file: str | pathlib.Path = "",
+        override: bool = False,
+        backend: DisassemblerBackend = DisassemblerBackend.IDA,
+        timeout: int = 600,
+    ) -> ProgramBinExport:
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.
@@ -136,6 +169,29 @@ class ProgramBinExport(dict):
         :return: an instance of ProgramBinExport if open_export is true, else boolean
                  on whether it succeeded
         """
+        binexport_file = ProgramBinExport.generate(
+            exec_file=exec_file,
+            output_file=output_file,
+            override=override,
+            backend=backend,
+            timeout=timeout,
+        )
+
+        # In theory if reach here export file exists otherwise an exception has been raised
+        if binexport_file.exists():
+            return ProgramBinExport.open(binexport_file)
+        else:
+            raise FileNotFoundError(f"Cannot open BinExport it does not exists: {binexport_file}")
+
+
+    @staticmethod
+    def generate(
+        exec_file: pathlib.Path | str,
+        output_file: str | pathlib.Path = "",
+        override: bool = False,
+        backend: DisassemblerBackend = DisassemblerBackend.IDA,
+        timeout: int = 600,
+    ) -> pathlib.Path:
 
         exec_file = pathlib.Path(exec_file)
         binexport_file = (
@@ -145,28 +201,41 @@ class ProgramBinExport(dict):
         )
 
         # If the binexport file already exists, do not want to override just return
-        if binexport_file.exists() and not override:
-            if open_export:
-                return ProgramBinExport(binexport_file)
+        if binexport_file.exists():
+            if not override:
+                return binexport_file
             else:
-                return True
+                binexport_file.unlink(missing_ok=False)  # Remove file
 
+        # Regenerate it!
         if backend == DisassemblerBackend.IDA:
-            return ProgramBinExport._from_ida(exec_file, binexport_file, open_export)
+            res = ProgramBinExport._from_ida(exec_file, binexport_file, timeout)
         elif backend == DisassemblerBackend.GHIDRA:
-            return ProgramBinExport._from_ghidra(exec_file, binexport_file, open_export)
+            res = ProgramBinExport._from_ghidra(exec_file, binexport_file, timeout)
         elif backend == DisassemblerBackend.BINARY_NINJA:
-            return ProgramBinExport._from_binary_ninja(exec_file, binexport_file, open_export)
+            res = ProgramBinExport._from_binary_ninja(exec_file, binexport_file, timeout)
         else:
             logger.error(f"Invalid backend '{backend}'")
-            return False
+            res = False
+        
+        # Check that it has properly been generated at the end
+        match res, binexport_file.exists():
+            case True, True:
+                return binexport_file  # Successful!
+            case False, True:
+                logger.error(f"Disassembler failed but BinExport file generated: {binexport_file}")
+                return binexport_file
+            case True, False:
+                raise FileNotFoundError(f"Disassembler succeeded but BinExport file missing: {binexport_file}")
+            case False, False:
+                raise FileNotFoundError(f"Disassembler {backend.name} failed, BinExport file missing: {binexport_file}")
 
     @staticmethod
     def _from_ida(
         exec_file: pathlib.Path,
         binexport_file: pathlib.Path,
-        open_export: bool = True,
-    ) -> ProgramBinExport | bool:
+        timeout: int = 600,
+    ) -> bool:
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.
@@ -175,9 +244,8 @@ class ProgramBinExport(dict):
 
         :param exec_file: executable file path
         :param binexport_file: BinExport output file
-        :param open_export: whether or not to open the binexport after export
-        :return: an instance of ProgramBinExport if open_export is true, else boolean
-                 on whether it succeeded
+        :param timeout: Export timeout in seconds
+        :return:  whether it succeeded or not
         """
         from idascript import IDA
 
@@ -188,29 +256,23 @@ class ProgramBinExport(dict):
                 "BinExportAutoAction:BinExportBinary",
                 f"BinExportModule:{binexport_file}",
             ],
+            timeout=timeout,
         )
         ida.start()
         retcode = ida.wait()
 
-        if retcode != 0 and not binexport_file.exists():
-            # Still continue if retcode != 0, because idat64 something crashes but still manage to export file
-            logger.warning(
-                f"{exec_file.name} failed to export [ret:{retcode}, binexport:{binexport_file.exists()}]"
-            )
+        if retcode == IDA.TIMEOUT_RETURNCODE:
+            logger.warning(f"{exec_file.name} timed out after {timeout} seconds")
             return False
-
-        if binexport_file.exists():
-            return ProgramBinExport(binexport_file) if open_export else True
-        else:
-            logger.error(f"{exec_file} can't find binexport generated")
-            return False
+        
+        return retcode == 0
         
     @staticmethod
     def _from_binary_ninja(
         exec_file: pathlib.Path,
         binexport_file: pathlib.Path,
-        open_export: bool = True,
-    ) -> ProgramBinExport | bool:
+        timeout: int = 600,
+    ) -> bool:
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.
@@ -219,11 +281,13 @@ class ProgramBinExport(dict):
 
         :param exec_file: executable file path
         :param binexport_file: BinExport output file
-        :param open_export: whether or not to open the binexport after export
-        :return: an instance of ProgramBinExport if open_export is true, else boolean
-                 on whether it succeeded
+        :return: whether it succeeded or not
         """
-        import binaryninja
+        try:
+            import binaryninja
+        except ModuleNotFoundError as e:
+            logging.error("Cannot find module python `binaryninja`. Try running BINARY_NINJA_PATH/scripts/install_api.py")
+            return False
 
         try:
             bv = binaryninja.load(exec_file)
@@ -239,18 +303,15 @@ class ProgramBinExport(dict):
         ctx = binaryninja.PluginCommandContext(bv)
         cmd.execute(ctx)
 
-        if binexport_file.exists():
-            return ProgramBinExport(binexport_file) if open_export else True
-        else:
-            logger.error(f"{exec_file} can't find binexport generated")
-            return False
+        # FIXME: How to obtain the return value?
+        return True
 
     @staticmethod
     def _from_ghidra(
         exec_file: pathlib.Path,
         binexport_file: pathlib.Path,
-        open_export: bool = True,
-    ) -> ProgramBinExport | bool:
+        timeout: int = 600,
+    ) -> bool:
         """
         Generate the .BinExport file for the given program and return an instance
         of ProgramBinExport.
@@ -259,9 +320,7 @@ class ProgramBinExport(dict):
 
         :param exec_file: executable file path
         :param binexport_file: BinExport output file
-        :param open_export: whether or not to open the binexport after export
-        :return: an instance of ProgramBinExport if open_export is true, else boolean
-                 on whether it succeeded
+        :return: whether it succeeded or not
         """
 
         # Check if the GHIDRA_PATH environment variable is set
@@ -314,11 +373,12 @@ class ProgramBinExport(dict):
                 ],
                 stdout=PIPE,
                 stderr=DEVNULL,
+                timeout=timeout,
             )
 
             if proc.returncode != 0:
                 logger.warning(
-                    f"{exec_file.name} failed to export [ret:{e.returncode}, binexport:{binexport_file.exists()}]"
+                    f"{exec_file.name} failed to export [ret:{proc.returncode}, binexport:{binexport_file.exists()}]"
                 )
                 return False
 
@@ -328,11 +388,8 @@ class ProgramBinExport(dict):
                 logger.warning("BinExport plugin not found, please install it!")
                 return False
 
-        if binexport_file.exists():
-            return ProgramBinExport(binexport_file) if open_export else True
-        else:
-            logger.error(f"{exec_file} can't find binexport generated")
-            return False
+        # if reach here assume running went fine.
+        return True
 
     @property
     def proto(self) -> BinExport2:
