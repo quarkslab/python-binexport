@@ -125,15 +125,16 @@ def check_disassembler_availability(disass: DisassemblerBackend, disass_path: st
 @click.option(
     "-d",
     "--disassembler",
-    type=click.Choice(["ida", "ghidra", "binja"], case_sensitive=False),
+    type=click.Choice([x.name.lower() for x in DisassemblerBackend], case_sensitive=False),
     default="ida",
     help="Disassembler to use",
 )
 @click.option(
     "--disass-path",
     type=click.Path(exists=True),
-    default=None,
-    help="Ghidra installation directory",
+    default="",
+    help="Path of the disassembler (if not in PATH)" \
+    "Can be provided with IDA_PATH, GHIDRA_PATH env variables",
 )
 @click.option("-t", "--threads", type=int, default=1, help="Thread number to use")
 @click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
