@@ -122,7 +122,7 @@ def check_disassembler_availability(disass: DisassemblerBackend, disass_path: st
 )
 @click.option(
     "--disass-path",
-    type=click.Path(exists=True),
+    type=str,
     default="",
     help="Path of the disassembler (dir or binary for IDA, dir for Ghidra)" \
     "(if not provided search $PATH or environment variable IDA_PATH, GHIDRA_PATH)",
