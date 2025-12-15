@@ -18,7 +18,7 @@ jobs:
         run: pip install build
       - name: Build wheel and sdist
         run: python -m build
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: artifact
           path: |
@@ -29,7 +29,7 @@ jobs:
     needs: build_wheel_and_sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           # unpacks default artifact into dist/
           # if `name: artifact` is omitted, the action will create extra parent dir
