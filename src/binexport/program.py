@@ -130,7 +130,7 @@ class ProgramBinExport(dict):
         output_file: str | pathlib.Path = "",
         override: bool = False,
         backend: DisassemblerBackend = DisassemblerBackend.IDA,
-        timeout: int = 600,
+        timeout: int | None = 600,
     ) -> ProgramBinExport:
         """
         Generate the .BinExport file for the given program and return an instance
@@ -165,8 +165,18 @@ class ProgramBinExport(dict):
         output_file: str | pathlib.Path = "",
         override: bool = False,
         backend: DisassemblerBackend = DisassemblerBackend.IDA,
-        timeout: int = 600,
+        timeout: int | None = 600,
     ) -> pathlib.Path:
+        """
+        Generate the .BinExport file for the given program.
+
+        :param exec_file: executable file path
+        :param output_file: BinExport output file
+        :param override: Override the .BinExport if already existing.
+        :param backend: The backend to use.
+        :param timeout: Per-file export timeout in seconds. Pass ``None`` to disable.
+        :return: the path of the generated BinExport file
+        """
 
         exec_file = pathlib.Path(exec_file)
         binexport_file = (
@@ -209,7 +219,7 @@ class ProgramBinExport(dict):
     def _from_ida(
         exec_file: pathlib.Path,
         binexport_file: pathlib.Path,
-        timeout: int = 600,
+        timeout: int | None = 600,
     ) -> bool:
         """
         Generate the .BinExport file for the given program and return an instance
@@ -246,7 +256,7 @@ class ProgramBinExport(dict):
     def _from_binary_ninja(
         exec_file: pathlib.Path,
         binexport_file: pathlib.Path,
-        timeout: int = 600,
+        timeout: int | None = 600,
     ) -> bool:
         """
         Generate the .BinExport file for the given program and return an instance
@@ -285,7 +295,7 @@ class ProgramBinExport(dict):
     def _from_ghidra(
         exec_file: pathlib.Path,
         binexport_file: pathlib.Path,
-        timeout: int = 600,
+        timeout: int | None = 600,
     ) -> bool:
         """
         Generate the .BinExport file for the given program and return an instance

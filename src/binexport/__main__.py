@@ -56,11 +56,11 @@ def recursive_file_iter(p: Path) -> Generator[Path, None, None]:
             yield from recursive_file_iter(f)
 
 
-def export_job(ingress, egress, backend: DisassemblerBackend) -> None:
+def export_job(ingress, egress, backend: DisassemblerBackend, timeout: int | None) -> None:
     while True:
         try:
             file = ingress.get(timeout=0.5)
-            res = ProgramBinExport.generate(file.as_posix(), backend=backend)
+            res = ProgramBinExport.generate(file.as_posix(), backend=backend, timeout=timeout)
             egress.put((file, res))
         except queue.Empty:
             pass
@@ -128,6 +128,12 @@ def check_disassembler_availability(disass: DisassemblerBackend, disass_path: st
     "(if not provided search $PATH or environment variable IDA_PATH, GHIDRA_PATH)",
 )
 @click.option("-t", "--threads", type=int, default=1, help="Thread number to use")
+@click.option(
+    "--timeout",
+    type=int,
+    default=None,
+    help="Per-file export timeout in seconds (if not set, no timeout is enforced)",
+)
 @click.option("-v", "--verbose", count=True, help="To activate or not the verbosity")
 @click.option("--stop-on-error", is_flag=True, default=False, help="Stop on error")
 @click.argument("input_file", type=click.Path(exists=True), metavar="<binary file|directory>")
@@ -135,6 +141,7 @@ def main(disassembler: str,
          disass_path: str,
          input_file: str,
          threads: int,
+         timeout: int | None,
          verbose: bool,
          stop_on_error: bool) -> None:
     """
@@ -162,7 +169,7 @@ def main(disassembler: str,
 
     # Launch all workers
     for _ in range(threads):
-        pool.apply_async(export_job, (ingress, egress, engine))
+        pool.apply_async(export_job, (ingress, egress, engine, timeout))
 
     # Pre-fill ingress queue
     total = 0
