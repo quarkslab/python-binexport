@@ -15,8 +15,9 @@ from multiprocessing import Pool, Queue, Manager
 
 from idascript import IDA_PATH_ENV, get_ida_path
 from binexport import ProgramBinExport
-from binexport.utils import logger
+from binexport.utils import logger, check_disassembler_availability
 from binexport.types import DisassemblerBackend
+
 
 BINARY_FORMAT = {
     "application/x-dosexec",
@@ -70,46 +71,6 @@ def export_job(ingress, egress, backend: DisassemblerBackend, timeout: int | Non
             # Might not be printed as triggered withing a fork
             logger.error(traceback.format_exception(e))
             egress.put((file, e))
-
-
-def check_disassembler_availability(disass: DisassemblerBackend, disass_path: str) -> bool:
-    """
-    Check if the disassembler is available in the system.
-    It also set the necessary environment variables.
-
-    :param disass: Disassembler backend to check
-    :param disass_path: Path of the disassembler (if not in PATH)
-    :return: True if the disassembler is available, False otherwise
-    """
-    if disass == DisassemblerBackend.IDA:
-        if disass_path:
-            ida_path = Path(disass_path)
-            os.environ[IDA_PATH_ENV] = str(ida_path)
-        try:
-            return bool(get_ida_path())
-        except ImportError:
-            logger.error("Cannot import idascript python module")
-            return False
-    
-    elif disass == DisassemblerBackend.GHIDRA:
-        if disass_path:
-            ghidra_path = Path(disass_path)
-            os.environ["GHIDRA_PATH"] = disass_path
-            return ghidra_path.exists()
-        else:
-            logger.error(f"Ghidra path {disass_path} does not exist")
-            return False
-    
-    elif disass == DisassemblerBackend.BINARY_NINJA:
-        try:
-            import binaryninja # type: ignore
-        except ImportError:
-            logger.error("Cannot import binaryninja python module")
-            return False
-    else:
-        logger.error(f"Unknown disassembler {disass}")
-        return False
-    return True
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)

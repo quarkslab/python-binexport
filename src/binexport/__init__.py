@@ -5,3 +5,4 @@ from .instruction import InstructionBinExport
 from .operand import OperandBinExport
 from .expression import ExpressionBinExport
 from .types import DisassemblerBackend
+from .utils import check_disassembler_availability

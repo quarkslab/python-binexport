@@ -269,9 +269,9 @@ class ProgramBinExport(dict):
         :return: whether it succeeded or not
         """
         try:
-            import binaryninja
+            import binaryninja # type: ignore
         except ModuleNotFoundError as e:
-            logging.error("Cannot find module python `binaryninja`. Try running BINARY_NINJA_PATH/scripts/install_api.py")
+            logger.error("Cannot find module python `binaryninja`. Try running BINARY_NINJA_PATH/scripts/install_api.py")
             return False
 
         try:
