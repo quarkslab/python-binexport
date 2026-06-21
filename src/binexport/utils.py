@@ -12,7 +12,7 @@ from idascript import IDA_PATH_ENV, get_ida_path
 
 
 if TYPE_CHECKING:
-    from binexport.binexport2_pb2 import Binexport2
+    from binexport.binexport2_pb2 import BinExport2
     from binexport.types import Addr
 
 
@@ -111,7 +111,7 @@ def get_basic_block_addr(pb: BinExport2, bb_idx: int) -> Addr:
     return get_instruction_address(pb, inst)
 
 
-def instruction_index_range(rng: Binexport2.BasicBlock.IndexRange) -> Iterator[int]:
+def instruction_index_range(rng: BinExport2.BasicBlock.IndexRange) -> Iterator[int]:
     """
     Low level function to iterate over the indices of a protobuf IndexRange.
 
