@@ -33,17 +33,19 @@ jobs:
       name: pypi
       url: https://pypi.org/p/python-binexport
     permissions:
+      # Used to publish to PyPI with Trusted Publishing.
       id-token: write
+      # Used for uploading the release notes.
+      contents: write  
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: artifact
-          path: dist
+          path: dist/
+          merge-multiple: true
 
       - name: Publish a Python distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: ./dist/
           attestations: true
 
       - name: Upload Python packages for release notes
