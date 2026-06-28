@@ -22,9 +22,8 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: artifact
-          path: |
-            ./dist/python_binexport*.whl
-            ./dist/*.tar.gz
+          path: dist/               # upload the whole dir, no hardcoded name
+          if-no-files-found: error  # fail at build time, not silently
 
   upload_pypi:
     needs: build_wheel_and_sdist
