@@ -34,6 +34,7 @@ jobs:
       url: https://pypi.org/p/python-binexport
     permissions:
       id-token: write
+      contents: write
     steps:
       - uses: actions/download-artifact@v8
         with:
