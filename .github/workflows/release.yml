@@ -50,7 +50,7 @@ jobs:
           attestations: true
 
       - name: Upload Python packages for release notes
-        uses: softprops/action-gh-release@v3.0.0
+        uses: softprops/action-gh-release@v3.0.1
         with:
           files: |
             dist/*
