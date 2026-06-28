@@ -3,6 +3,7 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch: 
 
 jobs:
   build_wheel_and_sdist:
@@ -28,18 +29,25 @@ jobs:
   upload_pypi:
     needs: build_wheel_and_sdist
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/python-binexport
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v8
         with:
           # unpacks default artifact into dist/
           # if `name: artifact` is omitted, the action will create extra parent dir
-          name: artifact
+          pattern: artifact_*
+          merge-multiple: true
           path: dist
 
       - name: Publish a Python distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.14.0
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_DEPLOY_TOKEN }}
+          packages-dir: ./dist/
+          attestations: true
 
       - name: Upload Python packages for release notes
         uses: softprops/action-gh-release@v3.0.0
